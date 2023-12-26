@@ -13,7 +13,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// -----------
+// CFFI START
 
 /**
  * @brief RHD2164 Read Write function typedef.
@@ -207,6 +207,6 @@ int rhd_duplicate_bits(uint8_t val);
  */
 void rhd_unsplit_u16(uint16_t data, uint8_t *a, uint8_t *b);
 
-#endif /* RHD_H */
+// CFFI END
 
-/*** end of file ***/
+#endif /* RHD_H */
