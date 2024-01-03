@@ -29,5 +29,4 @@ A few examples are provided in the `examples/` directory. Each example has its o
 
 - Verify compatibility with RHD2216 and RHD2132
 - Go from `.sh` to CMake
-- Add CFFI API example
 - Add schematics for RHD2164 DDR flip-flop

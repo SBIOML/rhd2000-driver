@@ -14,6 +14,12 @@
 
 // CFFI START
 
+int setup_serial(char *port);
+
+int close_serial(void);
+
+int my_rhd_rw_serial(uint16_t *tx_buf, uint16_t *rx_buf, size_t len);
+
 int my_rhd_rw(uint16_t *tx_buf, uint16_t *rx_buf, size_t len);
 
 // CFFI END
