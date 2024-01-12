@@ -23,25 +23,31 @@ int rhd_init(rhd_device_t *dev, bool mode, rhd_rw_t rw) {
 
 int rhd_send_raw(rhd_device_t *dev, uint16_t val) {
   dev->tx_buf[0] = val;
-  if (dev->double_bits) {
-    return dev->rw(dev->tx_buf, dev->rx_buf, 2);
-  } else {
+  switch ((int)dev->double_bits) {
+  case 0:
     return dev->rw(dev->tx_buf, dev->rx_buf, 1);
+    break;
+  default:
+    return dev->rw(dev->tx_buf, dev->rx_buf, 2);
+    break;
   }
 }
 
 int rhd_send(rhd_device_t *dev, uint16_t reg, uint16_t val) {
   int ret;
-  if (dev->double_bits) {
+  switch ((int)dev->double_bits) {
+  case 0: {
+    dev->tx_buf[0] = (reg << 8) | (val & 0xFF);
+    return dev->rw(dev->tx_buf, dev->rx_buf, 1);
+    break;
+  }
+  default: {
     dev->tx_buf[0] = rhd_duplicate_bits(reg);
     dev->tx_buf[1] = rhd_duplicate_bits(val);
-    ret = dev->rw(dev->tx_buf, dev->rx_buf, 2);
-  } else {
-    dev->tx_buf[0] = (reg << 8) | (val & 0xFF);
-    ret = dev->rw(dev->tx_buf, dev->rx_buf, 1);
+    return dev->rw(dev->tx_buf, dev->rx_buf, 2);
+    break;
   }
-
-  return ret;
+  }
 }
 
 int rhd_r(rhd_device_t *dev, uint16_t reg, uint16_t val) {
@@ -93,8 +99,7 @@ int rhd_setup(rhd_device_t *dev) {
 }
 
 int rhd_calib(rhd_device_t *dev) {
-  const int val = 0b01010101;
-  int ret = rhd_send(dev, val, 0);
+  int ret = rhd_send(dev, 0b01010101, 0);
 
   for (int i = 0; i < 9; i++) {
     // 9 dummy cmds
@@ -104,10 +109,7 @@ int rhd_calib(rhd_device_t *dev) {
   return ret;
 }
 
-int rhd_clear_calib(rhd_device_t *dev) {
-  const int val = 0b01101010;
-  return rhd_send(dev, val, 0);
-}
+int rhd_clear_calib(rhd_device_t *dev) { return rhd_send(dev, 0b01101010, 0); }
 
 int rhd_sample(rhd_device_t *dev, uint8_t ch) {
   int ret = rhd_send(dev, RHD_ADC_CH_CMD[ch], 0);
@@ -117,19 +119,19 @@ int rhd_sample(rhd_device_t *dev, uint8_t ch) {
 
 void rhd_sample_all(rhd_device_t *dev) {
   // Let ch0 sample from last iter, ask for ch1
-  const uint16_t *base =
-      dev->double_bits ? RHD_ADC_CH_CMD_DOUBLE : RHD_ADC_CH_CMD;
+  const uint16_t *RHD_ADC_CH =
+      (int)dev->double_bits ? RHD_ADC_CH_CMD_DOUBLE : RHD_ADC_CH_CMD;
 
-  rhd_send_raw(dev, base[1]);
+  rhd_send_raw(dev, RHD_ADC_CH[1]);
 
   // now we can loop til asked for ch32
   int ch = 0;
   for (int i = 2; i < 34; i++) {
     uint16_t cmd;
     if (i < 32) {
-      cmd = base[i];
+      cmd = RHD_ADC_CH[i];
     } else {
-      cmd = base[0];
+      cmd = RHD_ADC_CH[0];
     }
     // Value rx'd is CH[i-2]'s sample
     rhd_send_raw(dev, cmd);
@@ -143,28 +145,37 @@ void rhd_get_samples_from_rx(rhd_device_t *dev, uint16_t ch) {
   int ch_l = ch * 2;
   int ch_h = (ch + 32) * 2;
 
-  if (dev->double_bits) {
-    rhd_unsplit_u16(dev->rx_buf[0], &dev->sample_buf[ch_l++],
-                    &dev->sample_buf[ch_h++]);
-    rhd_unsplit_u16(dev->rx_buf[1], &dev->sample_buf[ch_l],
-                    &dev->sample_buf[ch_h]);
-  } else {
+  switch ((int)dev->double_bits) {
+  case 0: {
     dev->sample_buf[ch_l++] = (dev->rx_buf[0] >> 8) & 0xFF;
     dev->sample_buf[ch_l] = dev->rx_buf[0] & 0xFF;
     dev->sample_buf[ch_h++] = (dev->rx_buf[1] >> 8) & 0xFF;
     dev->sample_buf[ch_h] = dev->rx_buf[1] & 0xFF;
+    break;
+  }
+  case 1: {
+    rhd_unsplit_u16(dev->rx_buf[0], &dev->sample_buf[ch_l++],
+                    &dev->sample_buf[ch_h++]);
+    rhd_unsplit_u16(dev->rx_buf[1], &dev->sample_buf[ch_l],
+                    &dev->sample_buf[ch_h]);
+    break;
+  }
   }
   dev->sample_buf[ch_l] = dev->sample_buf[ch_l] | 1;
   dev->sample_buf[ch_h] = dev->sample_buf[ch_h] | 1;
 }
 
 int rhd_get_val_from_rx(rhd_device_t *dev) {
-  if (dev->double_bits) {
+  switch ((int)dev->double_bits) {
+  case 0:
+    return dev->rx_buf[0] & 0xFF;
+    break;
+  case 1: {
     uint8_t val, dum;
     rhd_unsplit_u16(dev->rx_buf[1], &val, &dum);
     return val;
-  } else {
-    return dev->rx_buf[0] & 0xFF;
+    break;
+  }
   }
 }
 
