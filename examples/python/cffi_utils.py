@@ -31,8 +31,9 @@ def read_cffi_h_to_str(file: str) -> str:
 def build_cffi(
     rhd_h_path: str,
     rhd_c_path: str,
-    h_files: str | list[str],
-    c_files: str | list[str],
+    h_files: str,
+    c_files: str,
+    libraries=[],
     out_path="./",
 ):
     """
@@ -48,31 +49,41 @@ def build_cffi(
     ffibuilder = FFI()
     ffibuilder.cdef(read_cffi_h_to_str(rhd_h_path))
 
+    c_src = ""
+    sources = []
+
     if type(h_files) == str:
         text = read_cffi_h_to_str(h_files)
         ffibuilder.cdef(text)
-        ffibuilder.set_source(
-            "_rhd_cffi",
-            f"""
+        c_src = f"""
             #include "{rhd_h_path}"
             #include "{h_files}"
-            """,
-            sources=[rhd_c_path, c_files],
-        )
+            """
+        sources = [rhd_c_path, c_files]
 
     elif type(h_files) == list:
         h_files = []
-        c_files = []
         for s in h_files:
             text = read_cffi_h_to_str(s)
             ffibuilder.cdef(text)
+        c_src = f"""
+        #include "{rhd_h_path}"
+        """
+        + "".join([f"#include {h}\n" for h in h_files])
+        sources=[rhd_c_path, *c_files]
+
+    if len(libraries) == 0:
         ffibuilder.set_source(
             "_rhd_cffi",
-            f"""
-            #include "{rhd_h_path}"
-            """
-            + "".join([f"#include {h}\n" for h in h_files]),
-            sources=[rhd_c_path, *c_files],
+            c_src,
+            sources=sources,
+        )
+    else:
+        ffibuilder.set_source(
+            "_rhd_cffi",
+            c_src,
+            sources=sources,
+            libraries=libraries,
         )
 
     ffibuilder.compile(verbose=1)
@@ -81,6 +92,10 @@ def build_cffi(
         if not f.startswith("_rhd_cffi"):
             continue
         print(f"Moving {f} to {out_path}/{f}")
+        try:
+            os.remove(f"{out_path}/{f}")
+        except:
+            pass
         shutil.move(f, out_path)
 
 

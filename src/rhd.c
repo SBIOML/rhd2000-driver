@@ -34,7 +34,6 @@ int rhd_send_raw(rhd_device_t *dev, uint16_t val) {
 }
 
 int rhd_send(rhd_device_t *dev, uint16_t reg, uint16_t val) {
-  int ret;
   switch ((int)dev->double_bits) {
   case 0: {
     dev->tx_buf[0] = (reg << 8) | (val & 0xFF);
@@ -170,7 +169,7 @@ int rhd_get_val_from_rx(rhd_device_t *dev) {
   case 0:
     return dev->rx_buf[0] & 0xFF;
     break;
-  case 1: {
+  default: {
     uint8_t val, dum;
     rhd_unsplit_u16(dev->rx_buf[1], &val, &dum);
     return val;

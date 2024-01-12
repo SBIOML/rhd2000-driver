@@ -1,25 +1,22 @@
 import sys
 import os
 
+cwdir = os.path.dirname(__file__)
+
 sys.path.append(os.path.dirname(__file__) + "/../")  # patch PATHs
 
 import cffi_utils
 
-try:
-    # Try to import CFFI
-    from _rhd_cffi import ffi, lib
-except:
-    # Build it if import failed
+cffi_utils.build_cffi(
+    "src/rhd.h",
+    "src/rhd.c",
+    cwdir + "/cffi_rw.h",
+    cwdir+ "/cffi_rw.c",
+    [],
+    cwdir,
+)
 
-    cffi_utils.build_cffi(
-        "src/rhd.h",
-        "src/rhd.c",
-        os.path.dirname(__file__) + "/cffi_rw.h",
-        os.path.dirname(__file__) + "/cffi_rw.c",
-        os.path.dirname(__file__),
-    )
-
-    from _rhd_cffi import ffi, lib
+from _rhd_cffi import ffi, lib
 
 
 def test_echo():

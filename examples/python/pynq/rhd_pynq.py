@@ -1,25 +1,23 @@
 import sys
 import os
 
-sys.path.append(os.path.dirname(__file__) + "/../")  # patch PATHs
+cwdir = os.path.dirname(__file__)
+
+sys.path.append(cwdir + "/../")  # patch PATHs
 
 import cffi_utils
 
-try:
-    # Try to import CFFI
-    from _rhd_cffi import ffi, lib
-except:
-    # Build it if import failed
+# Build it if import failed
+cffi_utils.build_cffi(
+    "src/rhd.h",
+    "src/rhd.c",
+    cwdir + "/rhd_pynq.h",
+    cwdir + "/rhd_pynq.c",
+    ["pynq", "cma"],
+    cwdir,
+)
 
-    cffi_utils.build_cffi(
-        "src/rhd.h",
-        "src/rhd.c",
-        os.path.dirname(__file__) + "/rhd_pynq.h",
-        os.path.dirname(__file__) + "/rhd_pynq.c",
-        os.path.dirname(__file__),
-    )
-
-    from _rhd_cffi import ffi, lib
+from _rhd_cffi import ffi, lib
 
 
 def test():

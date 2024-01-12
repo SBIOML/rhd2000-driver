@@ -13,13 +13,15 @@ PYNQ_MMIO_WINDOW axi_gpio_2;
 uint8_t *spi_done = NULL;
 uint8_t *spi_start = NULL;
 
+char bitstream_path[] = "rhd-spi.bit";
+
 int rhd_pynq_setup() {
 
   if (spi_start != NULL) {
     return -1;
   }
 
-  if (PYNQ_loadBitstream("rhd-spi.bit") != PYNQ_SUCCESS) {
+  if (PYNQ_loadBitstream(bitstream_path) != PYNQ_SUCCESS) {
     return 0;
   }
 
