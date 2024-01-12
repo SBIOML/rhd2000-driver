@@ -1,17 +1,9 @@
 # RHD2000 Python example
 
-## General description
+## Description
 
-This example shows how to use the RHD2000 lib in Python projects. This example is mostly useful to _show how to use librhd with Python's CFFI_. The example does the exact same things as the _C example_.
-
-TODO both ABI and API modes of CFFI are shown.
+This subfolder contains some utilities for _building_ the CFFI bindings (`cffi_utils.py`) in Out-of-line API Mode. Then, the examples are split into subfolders, eg `pynq/`, `workstation/`. They start by building the `.so`s with _CFFI_ if needed, then run a function that calls `librhd`.
 
 ## Running
 
-**Execute the scripts from the repo's root !**
-
-To generate `librhd.so` and `libcffi_rw.so`, run `build_so.sh` located in this directory.
-
-To compile and run the script, feel free to use `run.sh` located in this directory.
-
-To compile and run the in-line ABI example, you may use `run_e2e.sh` (end-to-end).
+To run, execute the scripts from the repo's root, eg `python3 examples/python/workstation/workstation.py`

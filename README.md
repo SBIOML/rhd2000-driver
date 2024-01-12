@@ -14,6 +14,8 @@ Tests are located under `tests/rhd_test.cpp` and can be ran with CMake either ma
 
 A few examples are provided in the `examples/` directory. Each example has its own readme to explain what's happening.
 
+In short, if you want to use the library in a pure-C environment, check out `examples/c`. If, instead, you mainly use Python and still want to use librhd, look at `examples/python`.
+
 ## Setting up
 
 - C compiler (GCC/Clang)

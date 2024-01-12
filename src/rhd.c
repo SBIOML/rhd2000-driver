@@ -73,7 +73,7 @@ int rhd_setup(rhd_device_t *dev) {
   rhd_r(dev, CHIP_ID, 0);
 
   int ret = 0;
-  for (int i = 0; i < sizeof(val_buf) / sizeof(uint16_t); i++) {
+  for (unsigned int i = 0; i < sizeof(val_buf) / sizeof(uint16_t); i++) {
     rhd_w(dev, i, val_buf[i]);
     if (i < 2) {
       continue;
