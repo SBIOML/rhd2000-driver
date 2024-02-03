@@ -13,3 +13,4 @@ build
 *.o
 *.so
 home/*
+.cache
