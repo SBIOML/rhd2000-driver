@@ -409,7 +409,7 @@ void rhd_get_samples_from_rx(rhd_device_t *dev, uint16_t ch) {
     dev->sample_buf[ch_h] = dev->rx_buf[1] & 0xFF;
     break;
   }
-  case 1: {
+  default: {
     rhd_unsplit_u16(dev->rx_buf[0], &dev->sample_buf[ch_l++],
                     &dev->sample_buf[ch_h++]);
     rhd_unsplit_u16(dev->rx_buf[1], &dev->sample_buf[ch_l],
@@ -417,8 +417,8 @@ void rhd_get_samples_from_rx(rhd_device_t *dev, uint16_t ch) {
     break;
   }
   }
-  dev->sample_buf[ch_l] = dev->sample_buf[ch_l] | 1;
-  dev->sample_buf[ch_h] = dev->sample_buf[ch_h] | 1;
+  dev->sample_buf[ch_l] |= 1;
+  dev->sample_buf[ch_h] |= 1;
 }
 
 int rhd_get_val_from_rx(rhd_device_t *dev) {
