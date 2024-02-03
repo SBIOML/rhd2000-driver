@@ -72,6 +72,29 @@ typedef enum {
 } rhd_reg_t;
 
 /**
+ * @brief Send data. Unlike rhd_r and rhd_w, this function does not set bits
+ * [7:6] of reg. It does double the bits of `reg` and `val` if
+ * `dev->double_bits` is true.
+ *
+ * @param dev pointer to rhd_device_t instance
+ * @param reg register to read, member of rhd_reg_t enum
+ * @param val value to send
+ * @return int SPI communication return code
+ */
+int rhd_send(rhd_device_t *dev, uint16_t reg, uint16_t val);
+
+/**
+ * @brief Send raw data. This function, unlike `rhd_send`, does not double bits.
+ * It should only be used for highly optimized situations where `val` is
+ * pre-doubled, for example at compile-time.
+ *
+ * @param dev pointer to rhd_device_t instance
+ * @param val value to send that is put in dev->tx_buf[0]
+ * @return int SPI communication return code
+ */
+int rhd_send_raw(rhd_device_t *dev, uint16_t val);
+
+/**
  * @brief Read RHD register
  *
  * dev->tx_buf's content is overwritten with the commands.
@@ -97,29 +120,6 @@ int rhd_r(rhd_device_t *dev, uint16_t reg);
  * @return int SPI return code
  */
 int rhd_w(rhd_device_t *dev, uint16_t reg, uint16_t val);
-
-/**
- * @brief Send data. Unlike rhd_r and rhd_w, this function does not set bits
- * [7:6] of reg. It does double the bits of `reg` and `val` if
- * `dev->double_bits` is true.
- *
- * @param dev pointer to rhd_device_t instance
- * @param reg register to read, member of rhd_reg_t enum
- * @param val value to send
- * @return int SPI communication return code
- */
-int rhd_send(rhd_device_t *dev, uint16_t reg, uint16_t val);
-
-/**
- * @brief Send raw data. This function, unlike `rhd_send`, does not double bits.
- * It should only be used for highly optimized situations where `val` is
- * pre-doubled, for example at compile-time.
- *
- * @param dev pointer to rhd_device_t instance
- * @param val value to send that is put in dev->tx_buf[0]
- * @return int SPI communication return code
- */
-int rhd_send_raw(rhd_device_t *dev, uint16_t val);
 
 /**
  * @brief Initialize RHD device driver. Afterwards, call `rhd_setup(...)` to

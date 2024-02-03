@@ -16,18 +16,6 @@ const uint16_t RHD_ADC_CH_CMD[32] = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10,
                                      11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
                                      22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
 
-int rhd_r(rhd_device_t *dev, uint16_t reg) {
-  // reg is 6 bits, b[7,6] = [1, 1]
-  reg = (reg & 0x3F) | 0xC0;
-  return rhd_send(dev, reg, 0);
-}
-
-int rhd_w(rhd_device_t *dev, uint16_t reg, uint16_t val) {
-  // reg is 6 bits, b[7,6] = [1, 0]
-  reg = (reg & 0x3F) | 0x80;
-  return rhd_send(dev, reg, val);
-}
-
 int rhd_send(rhd_device_t *dev, uint16_t reg, uint16_t val) {
   switch ((int)dev->double_bits) {
   case 0: {
@@ -54,6 +42,18 @@ int rhd_send_raw(rhd_device_t *dev, uint16_t val) {
     return dev->rw(dev->tx_buf, dev->rx_buf, 2);
     break;
   }
+}
+
+int rhd_r(rhd_device_t *dev, uint16_t reg) {
+  // reg is 6 bits, b[7,6] = [1, 1]
+  reg = (reg & 0x3F) | 0xC0;
+  return rhd_send(dev, reg, 0);
+}
+
+int rhd_w(rhd_device_t *dev, uint16_t reg, uint16_t val) {
+  // reg is 6 bits, b[7,6] = [1, 0]
+  reg = (reg & 0x3F) | 0x80;
+  return rhd_send(dev, reg, val);
 }
 
 int rhd_init(rhd_device_t *dev, bool mode, rhd_rw_t rw) {
