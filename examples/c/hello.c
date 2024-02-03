@@ -15,9 +15,9 @@ int main() {
 
   rhd_init(&rhd, false, my_rhd_rw);
 
-  rhd_setup(&rhd);
+  rhd_setup(&rhd, 1000, 20, 500, true, 20);
 
-  rhd_r(&rhd, INTAN_0, 5);
+  rhd_r(&rhd, INTAN_0);
 
   return 0;
 }

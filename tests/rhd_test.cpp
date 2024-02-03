@@ -83,17 +83,15 @@ TEST(RHD, RhdSend) {
 TEST(RHD, RhdRead) {
   rhd_device_t dev;
   rhd_init(&dev, 0, rw);
-  int len = rhd_r(&dev, 0x0F, 0x55);
+  int len = rhd_r(&dev, 0x0F);
   EXPECT_EQ(dev.tx_buf[0] & 0xFF00, 0xCF00);
-  EXPECT_EQ(dev.tx_buf[0] & 0xFF, 0x55);
   EXPECT_EQ(len, 1);
   EXPECT_EQ(dev.rx_buf[0], 0xAAAA);
   EXPECT_EQ(dev.rx_buf[1], 0x5555);
 
   rhd_init(&dev, 1, rw);
-  len = rhd_r(&dev, 0x0F, 0x55);
+  len = rhd_r(&dev, 0x0F);
   EXPECT_EQ(dev.tx_buf[0], 0xF0FF);
-  EXPECT_EQ(dev.tx_buf[1], 0x3333);
   EXPECT_EQ(len, 2);
   EXPECT_EQ(dev.rx_buf[0], 0xAAAA);
   EXPECT_EQ(dev.rx_buf[1], 0x5555);

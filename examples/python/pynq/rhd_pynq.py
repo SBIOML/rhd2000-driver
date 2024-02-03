@@ -30,12 +30,10 @@ def test():
     # for function pointer: https://stackoverflow.com/a/30811087/12135442
 
     lib.rhd_init(dev, False, ffi.addressof(lib, "rhd_pynq_rw"))
-    lib.rhd_setup(dev)
+    lib.rhd_setup(dev, 1000, 20, 500, True, 20)
 
     for i in range(40, 45):
-        for k in range(3):
-            lib.rhd_r(dev, i, 0)
-
+        lib.rhd_read_force(dev, i)
         print(f"Cmd read channel {i}, ret={chr(dev.rx_buf[0])}, {chr(dev.rx_buf[1])}")
 
     cffi_utils.benchmark(lib.rhd_r, 10000, dev, 40, 0)

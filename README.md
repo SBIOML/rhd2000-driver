@@ -25,6 +25,8 @@ In short, if you want to use the library in a pure-C environment, check out `exa
 ## References
 
 - SPI [tutorial](https://www.analog.com/en/analog-dialogue/articles/introduction-to-spi-interface.html)
+- RHD2000 [main page](https://intantech.com/products_RHD2000.html)
+- RHD2000 [datasheet](https://intantech.com/files/Intan_RHD2000_series_datasheet.pdf)
 - RHD2164 [datasheet](https://intantech.com/files/Intan_RHD2164_datasheet.pdf)
 
 ## TODO

@@ -72,7 +72,58 @@ typedef enum {
 } rhd_reg_t;
 
 /**
- * @brief Initialize RHD device driver
+ * @brief Read RHD register
+ *
+ * dev->tx_buf's content is overwritten with the commands.
+ *
+ * dev->rx_buf contains the received values.
+ *
+ * @param dev pointer to rhd_device_t instance
+ * @param reg register to read, member of rhd_reg_t enum
+ * @return int SPI communication return code
+ */
+int rhd_r(rhd_device_t *dev, uint16_t reg);
+
+/**
+ * @brief Write RHD register
+ *
+ * dev->tx_buf's content is overwritten with the commands.
+ *
+ * dev->rx_buf contains the received values.
+ *
+ * @param dev pointer to rhd_device_t instance
+ * @param reg Register to write to
+ * @param val Value to write into register
+ * @return int SPI return code
+ */
+int rhd_w(rhd_device_t *dev, uint16_t reg, uint16_t val);
+
+/**
+ * @brief Send data. Unlike rhd_r and rhd_w, this function does not set bits
+ * [7:6] of reg. It does double the bits of `reg` and `val` if
+ * `dev->double_bits` is true.
+ *
+ * @param dev pointer to rhd_device_t instance
+ * @param reg register to read, member of rhd_reg_t enum
+ * @param val value to send
+ * @return int SPI communication return code
+ */
+int rhd_send(rhd_device_t *dev, uint16_t reg, uint16_t val);
+
+/**
+ * @brief Send raw data. This function, unlike `rhd_send`, does not double bits.
+ * It should only be used for highly optimized situations where `val` is
+ * pre-doubled, for example at compile-time.
+ *
+ * @param dev pointer to rhd_device_t instance
+ * @param val value to send that is put in dev->tx_buf[0]
+ * @return int SPI communication return code
+ */
+int rhd_send_raw(rhd_device_t *dev, uint16_t val);
+
+/**
+ * @brief Initialize RHD device driver. Afterwards, call `rhd_setup(...)` to
+ * ready the device.
  *
  * @param dev pointer to rhd_device_t instance
  * @param mode true if using hardware flipflop strategy, false otherwise.
@@ -88,54 +139,77 @@ int rhd_init(rhd_device_t *dev, bool mode, rhd_rw_t rw);
  * @brief Setup RHD device with sensible defaults
  *
  * @param dev pointer to rhd_device_t instance
+ * @param fs sampling rate per channel
+ * @param fl amplifier lowpass frequency
+ * @param fh amplifier highpass frequency
+ * @param dsp enable dsp
+ * @param fdsp high-pass DSP cutoff frequency
  * @return int SPI communication return code
  */
-int rhd_setup(rhd_device_t *dev);
+int rhd_setup(rhd_device_t *dev, int fs, int fl, int fh, bool dsp, int fdsp);
 
 /**
- * @brief Send raw data. This function, unlike `rhd_send`, does not double bits.
- * It should only be used for highly optimized situations where `val` is
- * pre-doubled, for example at compile-time.
+ * @brief Configure RHD sample rate
  *
  * @param dev pointer to rhd_device_t instance
- * @param val value to send that is put in dev->tx_buf[0]
+ * @param fs sample rate in Hz
+ * @param n_ch number of active channels (includes temperature, etc), for
+ * RHD2164, halve the number : 64 ch -> n_ch = 32
  * @return int SPI communication return code
  */
-int rhd_send_raw(rhd_device_t *dev, uint16_t val);
+int rhd_cfg_fs(rhd_device_t *dev, int fs, int n_ch);
 
 /**
- * @brief Send data. Unlike rhd_r and rhd_w, this function does not set bits
- * [7:6] of reg. It does double the bits of `reg` and `val` if
- * `dev->double_bits` is true.
+ * @brief Configure RHD enabled channels
  *
  * @param dev pointer to rhd_device_t instance
- * @param reg register to read, member of rhd_reg_t enum
- * @param val value to send
+ * @param channels_l bitmask of the channels (0-31) to enable, eg 0xFFFFFFFF
+ * enables 0-31, 0xFFFF enables ch 0-16
+ * @param channels_h bitmask of the channels (32-63) to enable, only for RHD2164
+ * WATCH OUT! channels_h registers is reversed : MSb is lower channel, LSb is
+ * higher
  * @return int SPI communication return code
  */
-int rhd_send(rhd_device_t *dev, uint16_t reg, uint16_t val);
+int rhd_cfg_ch(rhd_device_t *dev, uint32_t channels_l, uint32_t channels_h);
 
 /**
- * @brief Read RHD register
- * dev->tx_buf's content is overwritten with the commands.
- * dev->rx_buf contains the received values.
+ * @brief Configure RHD on-chip amplifiers analog bandwidth, which is a bandpass
+ * Butterworth filter
+ *
+ * TODO support off-chip registers
+ * @param dev pointer to rhd_device_t instance
+ * @param fl Lower cutoff frequency
+ * @param fh higher cutoff frequency
+ * @return total samples per seconds
+ */
+int rhd_cfg_amp_bw(rhd_device_t *dev, int fl, int fh);
+
+/**
+ * @brief Configure RHD onboard dsp
  *
  * @param dev pointer to rhd_device_t instance
- * @param reg register to read, member of rhd_reg_t enum
+ * @param twos_comp true for two's complement data, false for offset binary.
+ * Only for biosignal channels, others are offset binary.
+ * @param abs_mode true for onboard data rectification, false for full-wave
+ * data. Same constraint as twos_comp
+ * @param dsp true to enable onboard DSP offset removal with first-order HP IIR
+ * filter
+ * @param fdsp DSP cutoff frequency
+ * @param fs channel sampling frequency
  * @return int SPI communication return code
  */
-int rhd_r(rhd_device_t *dev, uint16_t reg, uint16_t val);
+int rhd_cfg_dsp(rhd_device_t *dev, bool twos_comp, bool abs_mode, bool dsp,
+                int fdsp, int fs);
 
 /**
- * @brief Write RHD register
- * dev->tx_buf's content is overwritten with the commands.
+ * @brief "Force read" a register, meaning it will send the read command 3 times
+ * to get the expected value in the RX buffer.
  *
  * @param dev pointer to rhd_device_t instance
- * @param reg Register to write to
- * @param val Value to write into register
- * @return int SPI return code
+ * @param reg register to read from
+ * @return int
  */
-int rhd_w(rhd_device_t *dev, uint16_t reg, uint16_t val);
+int rhd_read_force(rhd_device_t *dev, int reg);
 
 /**
  * @brief Sample a single RHD channel.
