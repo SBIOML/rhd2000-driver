@@ -33,7 +33,7 @@ typedef struct {
   uint16_t tx_buf[2];
   uint16_t rx_buf[2];
   bool double_bits;
-  uint8_t sample_buf[128];
+  uint16_t sample_buf[64];
 } rhd_device_t;
 
 typedef enum {

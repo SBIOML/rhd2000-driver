@@ -2,10 +2,13 @@
 #include <pynq_api.h>
 #include <stdint.h>
 #include <stdio.h>
+#include <string.h>
+#include <sys/time.h>
 
-// AXI gpio 0: 0x4120 | 1 channel | 16 bits | spi_din
+// AXI gpio 0: 0x4120 | 1 channel | 24 bits | control signals
 // AXI gpio 1: 0x4121 | 2 channels | 1 bit | spi_start, spi_done
-// AXI gpio 2: 0x4122 | 2 channels | 16 bit | spi_dout_a, spi_dout_b
+// AXI gpio 2: 0x4122 | 2 channels | 16/32 bit | spi_din / spi_dout_a,
+// spi_dout_b
 PYNQ_MMIO_WINDOW axi_gpio_0;
 PYNQ_MMIO_WINDOW axi_gpio_1;
 PYNQ_MMIO_WINDOW axi_gpio_2;
@@ -13,16 +16,19 @@ PYNQ_MMIO_WINDOW axi_gpio_2;
 uint8_t *spi_done = NULL;
 uint8_t *spi_start = NULL;
 
-char bitstream_path[] = "rhd-spi.bit";
-
-int rhd_pynq_setup() {
-
+int rhd_pynq_setup(char bitstream[], uint16_t clk_div, uint8_t clk_wait) {
   if (spi_start != NULL) {
     return -1;
   }
 
-  if (PYNQ_loadBitstream(bitstream_path) != PYNQ_SUCCESS) {
-    return 0;
+  if (strlen(bitstream) > 0) {
+    int ret = PYNQ_loadBitstream(bitstream);
+    if (ret != PYNQ_SUCCESS) {
+      printf("Error loading bitstream %d\n", ret);
+      return ret;
+    }
+  } else {
+    printf("Assuming bitstream is already loaded...\n");
   }
 
   PYNQ_createMMIOWindow(&axi_gpio_0, 0x41200000, 0x200);
@@ -31,6 +37,9 @@ int rhd_pynq_setup() {
 
   spi_start = (uint8_t *)malloc(sizeof(uint8_t));
   spi_done = (uint8_t *)malloc(sizeof(uint8_t));
+
+  uint32_t cfg_val = clk_wait << 16 | clk_div;
+  PYNQ_writeMMIO(&axi_gpio_0, &cfg_val, 0, 3);
 
   return PYNQ_SUCCESS;
 }
@@ -48,7 +57,7 @@ int rhd_pynq_close() {
 
 int rhd_pynq_rw(uint16_t *tx, uint16_t *rx, size_t len) {
   for (unsigned int i = 0; i < len; i++) {
-    PYNQ_writeMMIO(&axi_gpio_0, &tx[i], 0, sizeof(uint16_t));
+    PYNQ_writeMMIO(&axi_gpio_2, &tx[i], 0, sizeof(uint16_t));
 
     *spi_start = 1;
     PYNQ_writeMMIO(&axi_gpio_1, spi_start, 0, sizeof(uint8_t));
@@ -60,48 +69,28 @@ int rhd_pynq_rw(uint16_t *tx, uint16_t *rx, size_t len) {
     } while (*spi_done == 0);
     *spi_done = 0;
 
-    PYNQ_readMMIO(&axi_gpio_2, &rx[0], 0, sizeof(uint16_t));
-    PYNQ_readMMIO(&axi_gpio_2, &rx[1], 8, sizeof(uint16_t));
+    PYNQ_readMMIO(&axi_gpio_2, (uint32_t *)rx, 8, sizeof(uint32_t));
   }
   return len;
 }
 
-int rhd_pynq_find_ch2() {
-  *spi_start = 1;
-  PYNQ_writeMMIO(&axi_gpio_1, spi_start, 0, sizeof(uint8_t));
-  *spi_start = 0;
-  PYNQ_writeMMIO(&axi_gpio_1, spi_start, 0, sizeof(uint8_t));
-
-  for (volatile int i = 0; i < 1000; i++) {
-    ;
-  }
-
-  *spi_done = 0;
-  for (int i = 0; i < 16; i++) {
-    PYNQ_readMMIO(&axi_gpio_1, spi_done, i, sizeof(uint8_t));
-    printf("%d: SPI_DONE=%d\n", i, *spi_done);
-  }
-
-  return *spi_done;
+uint32_t get_timestamp_us() {
+  // https://stackoverflow.com/a/5833240
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  return tv.tv_sec * (uint32_t)1000000 + tv.tv_usec;
 }
 
-int main() {
-  rhd_pynq_setup();
-
-  uint16_t tx_buf[2] = {0};
-  uint16_t rx_buf[2] = {0};
-
-  for (int i = 0; i < 8; i++) {
-    tx_buf[0] = 0xC000 | ((40 + i) << 8);
-    rhd_pynq_rw(tx_buf, rx_buf, 1);
-    if (i > 2) {
-      printf("%c\n", rx_buf[0]);
+uint16_t *rhd_pynq_sampling(rhd_device_t *dev, uint32_t nsamples,
+                            uint32_t dt_micro) {
+  uint16_t *bigbuf = (uint16_t *)malloc(64 * nsamples * sizeof(uint16_t));
+  for (uint32_t i = 0; i < nsamples; i++) {
+    uint32_t t0 = get_timestamp_us();
+    rhd_sample_all(dev);
+    memcpy(bigbuf + (i * 64), dev->sample_buf, 64 * sizeof(uint16_t));
+    while (get_timestamp_us() - t0 < dt_micro) {
+      ;
     }
   }
-
-  rhd_pynq_find_ch2();
-
-  rhd_pynq_close();
-
-  return 0;
+  return bigbuf;
 }

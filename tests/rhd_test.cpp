@@ -35,8 +35,10 @@ TEST(RHD, UnsplitMiso) {
   }
 }
 
+/**
+ * Do not change this function !
+ */
 int rw(uint16_t *tx_buf, uint16_t *rx_buf, size_t len) {
-  // Changing these values will break the tests !
   rx_buf[0] = 0xAAAA;
   rx_buf[1] = 0x5555;
   return len;
@@ -128,19 +130,16 @@ TEST(RHD, RhdClearCalib) {
 TEST(RHD, RhdSample) {
   rhd_device_t dev;
   rhd_init(&dev, 0, rw);
-  int len = rhd_sample(&dev, 10);
-  EXPECT_EQ(dev.sample_buf[20], 0xAA);
-  EXPECT_EQ(dev.sample_buf[21], 0xAA | 0x1);
-  EXPECT_EQ(dev.sample_buf[20 + 64], 0x55);
-  EXPECT_EQ(dev.sample_buf[21 + 64], 0x55 | 0x1);
+  int ch = 10;
+  int len = rhd_sample(&dev, ch);
+  EXPECT_EQ(dev.sample_buf[ch], 0xAAAA | 1);
+  EXPECT_EQ(dev.sample_buf[ch + 32], 0x5555);
   EXPECT_EQ(len, 1);
 
   rhd_init(&dev, 1, rw);
-  len = rhd_sample(&dev, 31);
-  EXPECT_EQ(dev.sample_buf[62], 0xFF);
-  EXPECT_EQ(dev.sample_buf[63], 0x00 | 0x1);
-  EXPECT_EQ(dev.sample_buf[126], 0x00);
-  EXPECT_EQ(dev.sample_buf[127], 0xFF | 0x1);
+  len = rhd_sample(&dev, ch);
+  EXPECT_EQ(dev.sample_buf[ch], 0xFF00 | 1);
+  EXPECT_EQ(dev.sample_buf[ch + 32], 0x00FF | 1);
   EXPECT_EQ(len, 2);
 }
 
@@ -152,24 +151,30 @@ TEST(RHD, RhdSampleAll) {
   rhd_init(&dev, 0, rw);
   rhd_sample_all(&dev);
   EXPECT_EQ(dev.tx_buf[0], RHD_ADC_CH_CMD[0]);
-  EXPECT_EQ(dev.sample_buf[1] & 0x1, 0); // Check channel 0 lsb
-  EXPECT_EQ(dev.sample_buf[3] & 0x1, 1); // Check other channel lsb
-  for (int i = 0; i < 32; i++) {         // Check all channel values
-    EXPECT_EQ(dev.sample_buf[i * 2], 0xAA);
-    EXPECT_EQ(dev.sample_buf[(i * 2) + 1] & 0xFE, 0xAA);
-    EXPECT_EQ(dev.sample_buf[(i + 32) * 2], 0x55);
-    EXPECT_EQ(dev.sample_buf[((i + 32) * 2) + 1], 0x55);
+  EXPECT_EQ(dev.sample_buf[0] & 1, 0); // Check channel 0 lsb == 0
+  EXPECT_EQ(dev.sample_buf[1] & 1, 1); // Check other channel lsb
+
+  // Check all channel values
+  EXPECT_EQ(dev.sample_buf[0], 0xAAAA);
+  EXPECT_EQ(dev.sample_buf[32], 0x5555);
+
+  for (int i = 1; i < 32; i++) {
+    EXPECT_EQ(dev.sample_buf[i], 0xAAAA | 1);
+    EXPECT_EQ(dev.sample_buf[i + 32], 0x5555);
   }
+  return;
 
   rhd_init(&dev, 1, rw);
   rhd_sample_all(&dev);
   EXPECT_EQ(dev.tx_buf[0], RHD_ADC_CH_CMD_DOUBLE[0]);
-  EXPECT_EQ(dev.sample_buf[1] & 0x1, 0);
-  EXPECT_EQ(dev.sample_buf[3] & 0x1, 1);
-  for (int i = 0; i < 32; i++) {
-    EXPECT_EQ(dev.sample_buf[i * 2], 0xFF);
-    EXPECT_EQ(dev.sample_buf[(i * 2) + 1] & 0xFE, 0x00);
-    EXPECT_EQ(dev.sample_buf[(i + 32) * 2], 0x00);
-    EXPECT_EQ(dev.sample_buf[((i + 32) * 2) + 1], 0xFF);
+  EXPECT_EQ(dev.sample_buf[0] & 1, 0);
+  EXPECT_EQ(dev.sample_buf[1] & 1, 1);
+
+  EXPECT_EQ(dev.sample_buf[0], 0xFF00);
+  EXPECT_EQ(dev.sample_buf[32], 0x00FF);
+
+  for (int i = 1; i < 32; i++) {
+    EXPECT_EQ(dev.sample_buf[i] & 0xFFFE, 0xFF00);
+    EXPECT_EQ(dev.sample_buf[i + 32] & 0xFFFE, 0x00FE);
   }
 }

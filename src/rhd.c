@@ -81,7 +81,7 @@ int rhd_setup(rhd_device_t *dev, int fs, int fl, int fh, bool dsp, int fdsp) {
   rhd_w(dev, IMP_CHK_AMP_SEL, 0);
   rhd_cfg_ch(dev, 0xFFFFFFFF, 0xFFFFFFFF);
   rhd_cfg_fs(dev, fs, 32);
-  rhd_cfg_amp_bw(dev, fl, fs);
+  rhd_cfg_amp_bw(dev, fl, fh);
   rhd_cfg_dsp(dev, true, false, dsp, fdsp, fs);
 
   return ret;
@@ -295,7 +295,7 @@ int rhd_cfg_amp_bw(rhd_device_t *dev, int fl, int fh) {
   } else if (fl >= 0.1) {
     rl_dac1 = 16;
     rl_dac2 = 60;
-    rl_dac2 = 1;
+    rl_dac3 = 1;
   }
 
   rhd_w(dev, AMP_BW_SEL_0, rh1_dac1);
@@ -381,7 +381,6 @@ void rhd_sample_all(rhd_device_t *dev) {
   rhd_send_raw(dev, RHD_ADC_CH[1]);
 
   // now we can loop til asked for ch32
-  int ch = 0;
   for (int i = 2; i < 34; i++) {
     uint16_t cmd;
     if (i < 32) {
@@ -391,34 +390,32 @@ void rhd_sample_all(rhd_device_t *dev) {
     }
     // Value rx'd is CH[i-2]'s sample
     rhd_send_raw(dev, cmd);
-    rhd_get_samples_from_rx(dev, ch++);
+    rhd_get_samples_from_rx(dev, i - 2);
   }
 
-  dev->sample_buf[1] &= 0xFE; // ch0 LSb set to 0 for alignment
+  dev->sample_buf[0] &= 0xFFFE; // ch0 LSb set to 0 for alignment
 }
 
 void rhd_get_samples_from_rx(rhd_device_t *dev, uint16_t ch) {
-  int ch_l = ch * 2;
-  int ch_h = (ch + 32) * 2;
+  int ch_a = ch;
+  int ch_b = (ch + 32);
 
   switch ((int)dev->double_bits) {
   case 0: {
-    dev->sample_buf[ch_l++] = (dev->rx_buf[0] >> 8) & 0xFF;
-    dev->sample_buf[ch_l] = dev->rx_buf[0] & 0xFF;
-    dev->sample_buf[ch_h++] = (dev->rx_buf[1] >> 8) & 0xFF;
-    dev->sample_buf[ch_h] = dev->rx_buf[1] & 0xFF;
+    dev->sample_buf[ch_a] = dev->rx_buf[0] | 1;
+    dev->sample_buf[ch_b] = dev->rx_buf[1] | 1;
     break;
   }
   default: {
-    rhd_unsplit_u16(dev->rx_buf[0], &dev->sample_buf[ch_l++],
-                    &dev->sample_buf[ch_h++]);
-    rhd_unsplit_u16(dev->rx_buf[1], &dev->sample_buf[ch_l],
-                    &dev->sample_buf[ch_h]);
+    uint8_t dat_a[2] = {0};
+    uint8_t dat_b[2] = {0};
+    rhd_unsplit_u16(dev->rx_buf[0], &dat_a[1], &dat_b[1]);
+    rhd_unsplit_u16(dev->rx_buf[1], &dat_a[0], &dat_b[0]);
+    dev->sample_buf[ch_a] = (((uint16_t)dat_a[1]) << 8) | dat_a[0] | 1;
+    dev->sample_buf[ch_b] = (((uint16_t)dat_b[1]) << 8) | dat_b[0] | 1;
     break;
   }
   }
-  dev->sample_buf[ch_l] |= 1;
-  dev->sample_buf[ch_h] |= 1;
 }
 
 int rhd_get_val_from_rx(rhd_device_t *dev) {
