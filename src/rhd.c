@@ -15,6 +15,12 @@ const uint16_t RHD_ADC_CH_CMD_DOUBLE[32] = {
 const uint16_t RHD_ADC_CH_CMD[32] = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10,
                                      11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
                                      22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
+
+/**
+ * @brief This array is used during `rhd_get_samples_from_rx` to dispatch the
+ * received samples to the correct "physical" layout. Feel free to modify the
+ * map as your application requires.
+ */
 int RHD_CHANNEL_MAP[64] = {10, 22, 12, 24, 13, 26, 7,  28, 1,  30, 59, 32, 53,
                            34, 48, 36, 62, 16, 14, 21, 11, 27, 5,  33, 63, 39,
                            57, 45, 51, 44, 50, 40, 8,  18, 15, 19, 9,  25, 3,
