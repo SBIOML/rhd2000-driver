@@ -15,6 +15,11 @@ const uint16_t RHD_ADC_CH_CMD_DOUBLE[32] = {
 const uint16_t RHD_ADC_CH_CMD[32] = {0,  1,  2,  3,  4,  5,  6,  7,  8,  9,  10,
                                      11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
                                      22, 23, 24, 25, 26, 27, 28, 29, 30, 31};
+int RHD_CHANNEL_MAP[64] = {10, 22, 12, 24, 13, 26, 7,  28, 1,  30, 59, 32, 53,
+                           34, 48, 36, 62, 16, 14, 21, 11, 27, 5,  33, 63, 39,
+                           57, 45, 51, 44, 50, 40, 8,  18, 15, 19, 9,  25, 3,
+                           31, 61, 37, 55, 43, 49, 46, 52, 38, 6,  20, 4,  17,
+                           2,  23, 0,  29, 60, 35, 58, 41, 56, 47, 54, 42};
 
 int rhd_send(rhd_device_t *dev, uint16_t reg, uint16_t val) {
   switch ((int)dev->double_bits) {
@@ -402,8 +407,8 @@ void rhd_get_samples_from_rx(rhd_device_t *dev, uint16_t ch) {
 
   switch ((int)dev->double_bits) {
   case 0: {
-    dev->sample_buf[ch_a] = dev->rx_buf[0] | 1;
-    dev->sample_buf[ch_b] = dev->rx_buf[1] | 1;
+    dev->sample_buf[RHD_CHANNEL_MAP[ch_a]] = dev->rx_buf[0] | 1;
+    dev->sample_buf[RHD_CHANNEL_MAP[ch_b]] = dev->rx_buf[1] | 1;
     break;
   }
   default: {
@@ -411,8 +416,10 @@ void rhd_get_samples_from_rx(rhd_device_t *dev, uint16_t ch) {
     uint8_t dat_b[2] = {0};
     rhd_unsplit_u16(dev->rx_buf[0], &dat_a[1], &dat_b[1]);
     rhd_unsplit_u16(dev->rx_buf[1], &dat_a[0], &dat_b[0]);
-    dev->sample_buf[ch_a] = (((uint16_t)dat_a[1]) << 8) | dat_a[0] | 1;
-    dev->sample_buf[ch_b] = (((uint16_t)dat_b[1]) << 8) | dat_b[0] | 1;
+    dev->sample_buf[RHD_CHANNEL_MAP[ch_a]] =
+        (((uint16_t)dat_a[1]) << 8) | dat_a[0] | 1;
+    dev->sample_buf[RHD_CHANNEL_MAP[ch_b]] =
+        (((uint16_t)dat_b[1]) << 8) | dat_b[0] | 1;
     break;
   }
   }

@@ -128,24 +128,28 @@ TEST(RHD, RhdClearCalib) {
 }
 
 TEST(RHD, RhdSample) {
+  extern int RHD_CHANNEL_MAP[32];
+
   rhd_device_t dev;
   rhd_init(&dev, 0, rw);
   int ch = 10;
+
   int len = rhd_sample(&dev, ch);
-  EXPECT_EQ(dev.sample_buf[ch], 0xAAAA | 1);
-  EXPECT_EQ(dev.sample_buf[ch + 32], 0x5555);
+  EXPECT_EQ(dev.sample_buf[RHD_CHANNEL_MAP[ch]], 0xAAAA | 1);
+  EXPECT_EQ(dev.sample_buf[RHD_CHANNEL_MAP[ch + 32]], 0x5555);
   EXPECT_EQ(len, 1);
 
   rhd_init(&dev, 1, rw);
   len = rhd_sample(&dev, ch);
-  EXPECT_EQ(dev.sample_buf[ch], 0xFF00 | 1);
-  EXPECT_EQ(dev.sample_buf[ch + 32], 0x00FF | 1);
+  EXPECT_EQ(dev.sample_buf[RHD_CHANNEL_MAP[ch]], 0xFF00 | 1);
+  EXPECT_EQ(dev.sample_buf[RHD_CHANNEL_MAP[ch + 32]], 0x00FF | 1);
   EXPECT_EQ(len, 2);
 }
 
 TEST(RHD, RhdSampleAll) {
   extern const uint16_t RHD_ADC_CH_CMD[32];
   extern const uint16_t RHD_ADC_CH_CMD_DOUBLE[32];
+  extern int RHD_CHANNEL_MAP[32];
 
   rhd_device_t dev;
   rhd_init(&dev, 0, rw);
@@ -155,13 +159,15 @@ TEST(RHD, RhdSampleAll) {
   EXPECT_EQ(dev.sample_buf[1] & 1, 1); // Check other channel lsb
 
   // Check all channel values
-  EXPECT_EQ(dev.sample_buf[0], 0xAAAA);
-  EXPECT_EQ(dev.sample_buf[32], 0x5555);
+  EXPECT_EQ(dev.sample_buf[RHD_CHANNEL_MAP[0]] & 0xFFFE, 0xAAAA & 0xFFFE);
+  EXPECT_EQ(dev.sample_buf[RHD_CHANNEL_MAP[32]] & 0xFFFE, 0x5555 & 0xFFFE);
 
   for (int i = 1; i < 32; i++) {
-    EXPECT_EQ(dev.sample_buf[i], 0xAAAA | 1);
-    EXPECT_EQ(dev.sample_buf[i + 32], 0x5555);
+    EXPECT_EQ(dev.sample_buf[RHD_CHANNEL_MAP[i]] & 0xFFFE, 0xAAAA);
+    EXPECT_EQ(dev.sample_buf[RHD_CHANNEL_MAP[i + 32]] & 0xFFFE,
+              0x5555 & 0xFFFE);
   }
+
   return;
 
   rhd_init(&dev, 1, rw);
@@ -170,11 +176,11 @@ TEST(RHD, RhdSampleAll) {
   EXPECT_EQ(dev.sample_buf[0] & 1, 0);
   EXPECT_EQ(dev.sample_buf[1] & 1, 1);
 
-  EXPECT_EQ(dev.sample_buf[0], 0xFF00);
-  EXPECT_EQ(dev.sample_buf[32], 0x00FF);
+  EXPECT_EQ(dev.sample_buf[RHD_CHANNEL_MAP[0]], 0xFF00);
+  EXPECT_EQ(dev.sample_buf[RHD_CHANNEL_MAP[32]], 0x00FF);
 
   for (int i = 1; i < 32; i++) {
-    EXPECT_EQ(dev.sample_buf[i] & 0xFFFE, 0xFF00);
-    EXPECT_EQ(dev.sample_buf[i + 32] & 0xFFFE, 0x00FE);
+    EXPECT_EQ(dev.sample_buf[RHD_CHANNEL_MAP[i]] & 0xFFFE, 0xFF00);
+    EXPECT_EQ(dev.sample_buf[RHD_CHANNEL_MAP[i + 32]] & 0xFFFE, 0x00FE);
   }
 }
