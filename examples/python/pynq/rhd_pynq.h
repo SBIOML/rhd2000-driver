@@ -16,8 +16,7 @@ void free(void *ptr);
  * @param clk_wait clock cycles to wait after a transfer is finished
  * @return int error code
  */
-int rhd_pynq_setup(char bitstream[], uint16_t clk_div, uint8_t clk_wait,
-                   bool load);
+int rhd_pynq_setup(char bitstream[], uint16_t clk_div, uint8_t clk_wait);
 
 /**
  * @brief Cleanup RHD PYNQ before exiting.
