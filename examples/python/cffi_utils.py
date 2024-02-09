@@ -102,8 +102,9 @@ def build_cffi(
             print(f"Copying {f} to {out_path}/{f}")
             shutil.copy(f, out_path)
             os.remove(f)
-        for f in ["rhd.h", "rhd.c", *h_files, *c_files]:
-            os.remove(f)
+
+    for f in ["rhd.h", "rhd.c", *h_files, *c_files]:
+        os.remove(f)
 
 
 def benchmark(fn, n=1, *args):
