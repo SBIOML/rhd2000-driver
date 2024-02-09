@@ -94,8 +94,10 @@ def build_cffi(
         )
 
     ffibuilder.compile(verbose=1)
-
     if out_path != "./":
+        if not os.path.exists(out_path):
+            os.mkdir(out_path)
+
         for f in os.listdir("."):
             if not f.startswith("_rhd_cffi"):
                 continue
