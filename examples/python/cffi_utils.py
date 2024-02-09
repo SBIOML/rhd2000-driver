@@ -43,7 +43,7 @@ def build_cffi(
 
     It requires the paths to `librhd` sources (.h, .c).
     `args` allows to pass in an arbitrary list of other paths, which will be included in the CFFI build.
-    For example, it's recommended to pass in your custom `rw` functor.
+    For example, it's recommended to pass in your custom `rw` functor implementation.
     """
 
     ffibuilder = FFI()
@@ -52,25 +52,32 @@ def build_cffi(
     c_src = ""
     sources = []
 
-    if type(h_files) == str:
-        text = read_cffi_h_to_str(h_files)
-        ffibuilder.cdef(text)
-        c_src = f"""
-            #include "{rhd_h_path}"
-            #include "{h_files}"
-            """
-        sources = [rhd_c_path, c_files]
+    assert type(c_files) == type(h_files)
 
-    elif type(h_files) == list:
-        h_files = []
-        for s in h_files:
-            text = read_cffi_h_to_str(s)
-            ffibuilder.cdef(text)
-        c_src = f"""
-        #include "{rhd_h_path}"
-        """
-        + "".join([f"#include {h}\n" for h in h_files])
-        sources=[rhd_c_path, *c_files]
+    if type(h_files) == str:
+        h_files = [h_files]
+        c_files = [c_files]
+
+    for s in h_files:
+        text = read_cffi_h_to_str(s)
+        ffibuilder.cdef(text)
+
+    # Copy all files into cwd and patch path
+    shutil.copy(rhd_h_path, "./")
+    shutil.copy(rhd_c_path, "./")
+    for i, f in enumerate(h_files):
+        shutil.copy(f, "./")
+        h_files[i] = f.split("/")[-1]
+    for i, f in enumerate(c_files):
+        shutil.copy(f, "./")
+        c_files[i] = f.split("/")[-1]
+
+    c_src = f"""
+    #include "rhd.h"
+    """ + "\n".join(
+        [f'#include "{h}"' for h in h_files]
+    )
+    sources = ["rhd.c", *c_files]
 
     if len(libraries) == 0:
         ffibuilder.set_source(
@@ -88,15 +95,15 @@ def build_cffi(
 
     ffibuilder.compile(verbose=1)
 
-    for f in os.listdir("."):
-        if not f.startswith("_rhd_cffi"):
-            continue
-        print(f"Moving {f} to {out_path}/{f}")
-        try:
-            os.remove(f"{out_path}/{f}")
-        except:
-            pass
-        shutil.move(f, out_path)
+    if out_path != "./":
+        for f in os.listdir("."):
+            if not f.startswith("_rhd_cffi"):
+                continue
+            print(f"Copying {f} to {out_path}/{f}")
+            shutil.copy(f, out_path)
+            os.remove(f)
+        for f in ["rhd.h", "rhd.c", *h_files, *c_files]:
+            os.remove(f)
 
 
 def benchmark(fn, n=1, *args):
