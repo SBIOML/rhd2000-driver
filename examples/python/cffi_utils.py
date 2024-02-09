@@ -99,7 +99,7 @@ def build_cffi(
             os.mkdir(out_path)
 
         for f in os.listdir("."):
-            if not f.startswith("_rhd_cffi"):
+            if not f.startswith("_rhd_cffi") or not f.endswith(".o"):
                 continue
             print(f"Copying {f} to {out_path}/{f}")
             shutil.copy(f, out_path)
