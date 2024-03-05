@@ -139,14 +139,15 @@ int rhd_init(rhd_device_t *dev, bool mode, rhd_rw_t rw);
  * @brief Setup RHD device with sensible defaults
  *
  * @param dev pointer to rhd_device_t instance
- * @param fs sampling rate per channel
- * @param fl amplifier lowpass frequency
- * @param fh amplifier highpass frequency
+ * @param fs target sampling rate per channel [Hz]
+ * @param fl amplifier lowpass frequency [Hz]
+ * @param fh amplifier highpass frequency [Hz]
  * @param dsp enable dsp
- * @param fdsp high-pass DSP cutoff frequency
+ * @param fdsp high-pass DSP cutoff frequency [Hz]
  * @return int SPI communication return code
  */
-int rhd_setup(rhd_device_t *dev, int fs, int fl, int fh, bool dsp, int fdsp);
+int rhd_setup(rhd_device_t *dev, float fs, float fl, float fh, bool dsp,
+              float fdsp);
 
 /**
  * @brief Configure RHD sample rate
@@ -157,7 +158,7 @@ int rhd_setup(rhd_device_t *dev, int fs, int fl, int fh, bool dsp, int fdsp);
  * RHD2164, halve the number : 64 ch -> n_ch = 32
  * @return int SPI communication return code
  */
-int rhd_cfg_fs(rhd_device_t *dev, int fs, int n_ch);
+int rhd_cfg_fs(rhd_device_t *dev, float fs, int n_ch);
 
 /**
  * @brief Configure RHD enabled channels
@@ -182,7 +183,7 @@ int rhd_cfg_ch(rhd_device_t *dev, uint32_t channels_l, uint32_t channels_h);
  * @param fh higher cutoff frequency
  * @return total samples per seconds
  */
-int rhd_cfg_amp_bw(rhd_device_t *dev, int fl, int fh);
+int rhd_cfg_amp_bw(rhd_device_t *dev, float fl, float fh);
 
 /**
  * @brief Configure RHD onboard dsp
@@ -199,7 +200,7 @@ int rhd_cfg_amp_bw(rhd_device_t *dev, int fl, int fh);
  * @return int SPI communication return code
  */
 int rhd_cfg_dsp(rhd_device_t *dev, bool twos_comp, bool abs_mode, bool dsp,
-                int fdsp, int fs);
+                float fdsp, float fs);
 
 /**
  * @brief "Force read" a register, meaning it will send the read command 3 times

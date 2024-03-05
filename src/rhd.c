@@ -73,7 +73,8 @@ int rhd_init(rhd_device_t *dev, bool mode, rhd_rw_t rw) {
   return 0;
 }
 
-int rhd_setup(rhd_device_t *dev, int fs, int fl, int fh, bool dsp, int fdsp) {
+int rhd_setup(rhd_device_t *dev, float fs, float fl, float fh, bool dsp,
+              float fdsp) {
   // R0 : 1.225V Vref = 1, ADC comp bias = 3, ADC comp sel = 2
   // R4 : [b6] twoscomp = 1
   // High bandwidth (R8-R11) = 300 Hz
@@ -90,10 +91,13 @@ int rhd_setup(rhd_device_t *dev, int fs, int fl, int fh, bool dsp, int fdsp) {
   rhd_w(dev, IMP_CHK_CTRL, 0);
   rhd_w(dev, IMP_CHK_DAC, 0);
   rhd_w(dev, IMP_CHK_AMP_SEL, 0);
-  rhd_cfg_ch(dev, 0xFFFFFFFF, 0xFFFFFFFF);
+
   rhd_cfg_fs(dev, fs, 32);
-  rhd_cfg_amp_bw(dev, fl, fh);
   rhd_cfg_dsp(dev, true, false, dsp, fdsp, fs);
+  rhd_cfg_ch(dev, 0xFFFFFFFF, 0xFFFFFFFF);
+  rhd_cfg_amp_bw(dev, fl, fh);
+
+  rhd_calib(dev);
 
   return ret;
 }
@@ -110,252 +114,99 @@ int rhd_cfg_ch(rhd_device_t *dev, uint32_t channels_l, uint32_t channels_h) {
   return rhd_w(dev, IND_AMP_PWR_7, (channels_h >> 24) & 0xFF);
 }
 
-int rhd_cfg_fs(rhd_device_t *dev, int fs, int n_ch) {
-  int msps = fs * n_ch;
-  int adc_buf_bias = 32;
-  int mux_bias = 40;
-  if (msps >= 700000) {
-    adc_buf_bias = 2;
-    mux_bias = 4;
-  } else if (msps >= 525000) {
-    adc_buf_bias = 3;
-    mux_bias = 7;
-  } else if (msps >= 440000) {
-    adc_buf_bias = 3;
-    mux_bias = 16;
-  } else if (msps >= 350000) {
-    adc_buf_bias = 4;
-    mux_bias = 18;
-  } else if (msps >= 280000) {
-    adc_buf_bias = 8;
-    mux_bias = 26;
-  } else if (msps >= 220000) {
-    adc_buf_bias = 8;
-    mux_bias = 32;
-  } else if (msps >= 175000) {
-    adc_buf_bias = 8;
-    mux_bias = 40;
-  } else if (msps >= 140000) {
-    adc_buf_bias = 16;
-    mux_bias = 40;
+int rhd_cfg_fs(rhd_device_t *dev, float fs, int n_ch) {
+  const float msps = fs * n_ch;
+  const int msps_lut[9] = {120000, 140000, 175000, 220000, 280000,
+                           350000, 440000, 525000, 700000};
+  const int adc_buf_bias_lut[9] = {32, 16, 8, 8, 8, 4, 3, 3, 2};
+  const int mux_bias_lut[9] = {40, 40, 40, 32, 26, 18, 16, 7, 4};
+
+  int i_lut = 0;
+  for (unsigned int i = 0; i < sizeof(msps_lut) / sizeof(int); i++) {
+    if (msps <= msps_lut[i]) {
+      break;
+    }
+    i_lut = i;
   }
 
-  rhd_w(dev, SUPPLY_SENS_ADC_BUF_BIAS, adc_buf_bias);
-  rhd_w(dev, MUX_BIAS_CURR, mux_bias);
+  rhd_w(dev, SUPPLY_SENS_ADC_BUF_BIAS, adc_buf_bias_lut[i_lut]);
+  rhd_w(dev, MUX_BIAS_CURR, mux_bias_lut[i_lut]);
 
   return msps;
 }
 
-int rhd_cfg_amp_bw(rhd_device_t *dev, int fl, int fh) {
-  int rh1_dac1 = 38;
-  int rh1_dac2 = 26;
-  int rh2_dac1 = 5;
-  int rh2_dac2 = 31;
+int rhd_cfg_amp_bw(rhd_device_t *dev, float fl, float fh) {
+  const int fh_lut[17] = {20000, 15000, 10000, 7500, 5000, 3000,
+                          2500,  2000,  1500,  1000, 750,  500,
+                          300,   250,   200,   150,  100};
+  const int rh1_dac1_lut[17] = {8,  11, 17, 22, 33, 3,  13, 27, 1,
+                                46, 41, 30, 6,  42, 24, 44, 38};
+  const int rh1_dac2_lut[17] = {0, 0, 0, 0, 0,  1,  1,  1, 2,
+                                2, 3, 5, 9, 10, 13, 17, 26};
+  const int rh2_dac1_lut[17] = {4,  8,  16, 23, 37, 13, 25, 44, 23,
+                                30, 36, 43, 2,  5,  7,  8,  5};
+  const int rh2_dac2_lut[17] = {0, 0, 0, 0,  0,  1,  1,  1, 2,
+                                3, 4, 6, 11, 13, 16, 21, 31};
 
-  if (fh >= 20000) {
-    rh1_dac1 = 8;
-    rh1_dac2 = 0;
-    rh2_dac1 = 4;
-    rh2_dac2 = 0;
-  } else if (fh >= 15000) {
-    rh1_dac1 = 11;
-    rh1_dac2 = 0;
-    rh2_dac1 = 8;
-    rh2_dac2 = 0;
-  } else if (fh >= 10000) {
-    rh1_dac1 = 17;
-    rh1_dac2 = 0;
-    rh2_dac1 = 16;
-    rh2_dac2 = 0;
-  } else if (fh >= 7500) {
-    rh1_dac1 = 22;
-    rh1_dac2 = 0;
-    rh2_dac1 = 23;
-    rh2_dac2 = 0;
-  } else if (fh >= 5000) {
-    rh1_dac1 = 33;
-    rh1_dac2 = 0;
-    rh2_dac1 = 37;
-    rh2_dac2 = 0;
-  } else if (fh >= 3000) {
-    rh1_dac1 = 3;
-    rh1_dac2 = 1;
-    rh2_dac1 = 13;
-    rh2_dac2 = 1;
-  } else if (fh >= 2500) {
-    rh1_dac1 = 13;
-    rh1_dac2 = 1;
-    rh2_dac1 = 25;
-    rh2_dac2 = 1;
-  } else if (fh >= 2000) {
-    rh1_dac1 = 27;
-    rh1_dac2 = 1;
-    rh2_dac1 = 44;
-    rh2_dac2 = 1;
-  } else if (fh >= 1500) {
-    rh1_dac1 = 1;
-    rh1_dac2 = 2;
-    rh2_dac1 = 33;
-    rh2_dac2 = 2;
-  } else if (fh >= 1000) {
-    rh1_dac1 = 46;
-    rh1_dac2 = 2;
-    rh2_dac1 = 30;
-    rh2_dac2 = 3;
-  } else if (fh >= 750) {
-    rh1_dac1 = 41;
-    rh1_dac2 = 3;
-    rh2_dac1 = 36;
-    rh2_dac2 = 4;
-  } else if (fh >= 500) {
-    rh1_dac1 = 30;
-    rh1_dac2 = 5;
-    rh2_dac1 = 43;
-    rh2_dac2 = 6;
-  } else if (fh >= 300) {
-    rh1_dac1 = 6;
-    rh1_dac2 = 9;
-    rh2_dac1 = 2;
-    rh2_dac2 = 11;
-  } else if (fh >= 250) {
-    rh1_dac1 = 42;
-    rh1_dac2 = 10;
-    rh2_dac1 = 5;
-    rh2_dac2 = 13;
-  } else if (fh >= 200) {
-    rh1_dac1 = 24;
-    rh1_dac2 = 13;
-    rh2_dac1 = 7;
-    rh2_dac2 = 16;
-  } else if (fh >= 150) {
-    rh1_dac1 = 44;
-    rh1_dac2 = 17;
-    rh2_dac1 = 8;
-    rh2_dac2 = 21;
-  } else if (fh >= 100) {
-    rh1_dac1 = 38;
-    rh1_dac2 = 26;
-    rh2_dac1 = 5;
-    rh2_dac2 = 31;
+  int i_fh = 0;
+  for (unsigned int i = 0; i < sizeof(fh_lut) / sizeof(int); i++) {
+    if (fh >= fh_lut[i]) {
+      break;
+    }
+    i_fh++;
   }
 
-  int rl_dac1 = 38;
-  int rl_dac2 = 0;
-  int rl_dac3 = 0;
+  const float fl_lut[25] = {0.1, 0.25, 0.3, 0.5, 0.75, 1.0, 1.5, 2.0, 2.5,
+                            3.0, 5.0,  7.5, 10,  15,   20,  25,  30,  50,
+                            75,  100,  150, 200, 250,  300, 500};
+  const int rl_dac1_lut[25] = {16, 56, 1,  35, 49, 44, 9,  8,  42,
+                               20, 40, 18, 5,  62, 54, 48, 44, 34,
+                               28, 25, 21, 18, 17, 15, 13};
+  const int rl_dac2_lut[25] = {60, 54, 40, 17, 9, 6, 4, 3, 2, 2, 1, 1, 1,
+                               0,  0,  0,  0,  0, 0, 0, 0, 0, 0, 0, 0};
+  const int rl_dac3_lut[25] = {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                               0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
-  if (fl >= 500) {
-    rl_dac1 = 13;
-  } else if (fl >= 300) {
-    rl_dac1 = 15;
-  } else if (fl >= 250) {
-    rl_dac1 = 17;
-  } else if (fl >= 200) {
-    rl_dac1 = 18;
-  } else if (fl >= 150) {
-    rl_dac1 = 21;
-  } else if (fl >= 100) {
-    rl_dac1 = 25;
-  } else if (fl >= 75) {
-    rl_dac1 = 28;
-  } else if (fl >= 50) {
-    rl_dac1 = 34;
-  } else if (fl >= 30) {
-    rl_dac1 = 44;
-  } else if (fl >= 25) {
-    rl_dac1 = 48;
-  } else if (fl >= 20) {
-    rl_dac1 = 54;
-  } else if (fl >= 15) {
-    rl_dac1 = 62;
-  } else if (fl >= 10) {
-    rl_dac1 = 5;
-    rl_dac2 = 1;
-  } else if (fl >= 7.5) {
-    rl_dac1 = 18;
-    rl_dac2 = 1;
-  } else if (fl >= 5) {
-    rl_dac1 = 40;
-    rl_dac2 = 1;
-  } else if (fl >= 3) {
-    rl_dac1 = 20;
-    rl_dac2 = 2;
-  } else if (fl >= 2.5) {
-    rl_dac1 = 42;
-    rl_dac2 = 2;
-  } else if (fl >= 2) {
-    rl_dac1 = 8;
-    rl_dac2 = 3;
-  } else if (fl >= 1.5) {
-    rl_dac1 = 9;
-    rl_dac2 = 4;
-  } else if (fl >= 1) {
-    rl_dac1 = 44;
-    rl_dac2 = 6;
-  } else if (fl >= 0.75) {
-    rl_dac1 = 49;
-    rl_dac2 = 9;
-  } else if (fl >= 0.5) {
-    rl_dac1 = 35;
-    rl_dac2 = 17;
-  } else if (fl >= 0.3) {
-    rl_dac1 = 1;
-    rl_dac2 = 40;
-  } else if (fl >= 0.25) {
-    rl_dac1 = 56;
-    rl_dac2 = 54;
-  } else if (fl >= 0.1) {
-    rl_dac1 = 16;
-    rl_dac2 = 60;
-    rl_dac3 = 1;
+  int i_fl = 0;
+  for (unsigned int i = 0; i < sizeof(fl_lut) / sizeof(float); i++) {
+    if (fl <= fl_lut[i]) {
+      break;
+    }
+    i_fl++;
   }
 
-  rhd_w(dev, AMP_BW_SEL_0, rh1_dac1);
-  rhd_w(dev, AMP_BW_SEL_1, rh1_dac2);
-  rhd_w(dev, AMP_BW_SEL_2, rh2_dac1);
-  rhd_w(dev, AMP_BW_SEL_3, rh2_dac2);
-  rhd_w(dev, AMP_BW_SEL_4, rl_dac1);
-  int ret = rhd_w(dev, AMP_BW_SEL_5, (rl_dac3 << 6) | rl_dac2);
+  rhd_w(dev, AMP_BW_SEL_0, rh1_dac1_lut[i_fh]);
+  rhd_w(dev, AMP_BW_SEL_1, rh1_dac2_lut[i_fh]);
+  rhd_w(dev, AMP_BW_SEL_2, rh2_dac1_lut[i_fh]);
+  rhd_w(dev, AMP_BW_SEL_3, rh2_dac2_lut[i_fh]);
+  rhd_w(dev, AMP_BW_SEL_4, rl_dac1_lut[i_fl]);
+  int ret =
+      rhd_w(dev, AMP_BW_SEL_5, (rl_dac3_lut[i_fl] << 6) | rl_dac2_lut[i_fl]);
 
   return ret;
 }
 
 int rhd_cfg_dsp(rhd_device_t *dev, bool twos_comp, bool abs_mode, bool dsp,
-                int fdsp, int fs) {
-  float k_lut[] = {0.1103,     0.04579,     0.02125,    0.01027,
-                   0.005053,   0.002506,    0.001248,   0.0006229,
-                   0.0003112,  0.0001555,   0.00007773, 0.00003886,
-                   0.00001943, 0.000009714, 0.000004857};
+                float fdsp, float fs) {
+  const double k_lut[16] = {0.99,       0.1103,     0.04579,     0.02125,
+                            0.01027,    0.005053,   0.002506,    0.001248,
+                            0.0006229,  0.0003112,  0.0001555,   0.00007773,
+                            0.00003886, 0.00001943, 0.000009714, 0.000004857};
+
   int dsp_val = 0;
-
   if (dsp) {
-    float k = ((float)fdsp) / fs;
-    for (unsigned int i = 0; i < sizeof(k_lut) / sizeof(float); i++) {
-      dsp_val++;
+    float k = fdsp / fs;
+    for (unsigned int i = 0; i < sizeof(k_lut) / sizeof(double); i++) {
       if (k > k_lut[i]) {
-        if (i == 0) {
-          break;
-        }
-        // k_lut descending order so it's between k_lut[i-1] and k_lut[i]
-        float d1 = k_lut[i - 1] - k;
-        float d2 = k - k_lut[i];
-
-        if (d1 < d2) {
-          // previous value is closer so choose it
-          dsp_val--;
-        }
-
         break;
       }
-    }
-    // Perfect differentiator
-    if (fdsp == 0) {
-      dsp_val = 0;
+      dsp_val++;
     }
   }
 
   return rhd_w(dev, ADC_OUT_FMT_DPS_OFF_RMVL,
-               1 << 7 | ((int)twos_comp) << 6 | ((int)abs_mode) << 5 |
-                   ((int)dsp) << 4 | dsp_val);
+               (1 << 7) | (((int)twos_comp) << 6) | (((int)abs_mode) << 5) |
+                   (((int)dsp) << 4) | dsp_val);
 }
 
 int rhd_calib(rhd_device_t *dev) {

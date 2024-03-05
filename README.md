@@ -34,3 +34,4 @@ In short, if you want to use the library in a pure-C environment, check out `exa
 - Verify compatibility with RHD2216 and RHD2132
 - Go from `.sh` to CMake
 - Add schematics for RHD2164 DDR flip-flop
+- Make sample_all use C=63 for auto incrementation (RHD2000 datasheet p.16)

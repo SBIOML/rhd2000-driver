@@ -54,7 +54,7 @@ def build_cffi(
 
     assert type(c_files) == type(h_files)
 
-    if type(h_files) == str:
+    if isinstance(h_files, str):
         h_files = [h_files]
         c_files = [c_files]
 
@@ -72,7 +72,7 @@ def build_cffi(
         shutil.copy(f, "./")
         c_files[i] = f.split("/")[-1]
 
-    c_src = f"""
+    c_src = """
     #include "rhd.h"
     """ + "\n".join(
         [f'#include "{h}"' for h in h_files]
@@ -99,7 +99,7 @@ def build_cffi(
             os.mkdir(out_path)
 
         for f in os.listdir("."):
-            if not f.startswith("_rhd_cffi") or not f.endswith(".o"):
+            if not f.startswith("_rhd_cffi"):
                 continue
             print(f"Copying {f} to {out_path}/{f}")
             shutil.copy(f, out_path)
