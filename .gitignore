@@ -10,6 +10,7 @@ __pycache__
 _rhd*
 build
 .vscode
+*.a
 *.o
 *.so
 home/*

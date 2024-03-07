@@ -1,4 +1,4 @@
-#include "../../src/rhd.h"
+#include <rhd.h>
 #include <stdio.h>
 
 int my_rhd_rw(uint16_t *tx_buf, uint16_t *rx_buf, size_t len) {
