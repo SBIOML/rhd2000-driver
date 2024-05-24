@@ -131,12 +131,12 @@ int rhd_w(rhd_device_t *dev, uint16_t reg, uint16_t val);
  * This is how RHD2164 driver bridges to the hardware.
  * Refer to @ref rhd_rw_t's inline documentation.
  *
- * @return int SPI communication return code
+ * @return int sanity check result, 0 for success. See @ref rhd_sanity_check for more details.
  */
 int rhd_init(rhd_device_t *dev, bool mode, rhd_rw_t rw);
 
 /**
- * @brief Setup RHD device with sensible defaults
+ * @brief Setup RHD device with sensible defaults, including device calibration.
  *
  * @param dev pointer to rhd_device_t instance
  * @param fs target sampling rate per channel [Hz]
@@ -144,7 +144,7 @@ int rhd_init(rhd_device_t *dev, bool mode, rhd_rw_t rw);
  * @param fh amplifier highpass frequency [Hz]
  * @param dsp enable dsp
  * @param fdsp high-pass DSP cutoff frequency [Hz]
- * @return int SPI communication return code
+ * @return int sanity check result, 0 for success. See @ref rhd_sanity_check for more details.
  */
 int rhd_setup(rhd_device_t *dev, float fs, float fl, float fh, bool dsp,
               float fdsp);
@@ -208,7 +208,7 @@ int rhd_cfg_dsp(rhd_device_t *dev, bool twos_comp, bool abs_mode, bool dsp,
  *
  * @param dev pointer to rhd_device_t instance
  * @param reg register to read from
- * @return int the value read from the register
+ * @return int value read from the register
  */
 int rhd_read_force(rhd_device_t *dev, int reg);
 
@@ -238,6 +238,14 @@ int rhd_calib(rhd_device_t *dev);
  * @return int SPI return code
  */
 int rhd_clear_calib(rhd_device_t *dev);
+
+/**
+ * @brief Read the INTAN registers (40-44) to verify if the chip is working.
+ * 
+ * @param dev pointer to rhd_device_t instance
+ * @return int 0 for success. Otherwise, returns the first register which failed.
+*/
+int rhd_sanity_check(rhd_device_t *dev);
 
 /**
  * @brief Sequentially sample all RHD channels.

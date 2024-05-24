@@ -71,7 +71,7 @@ int rhd_w(rhd_device_t *dev, uint16_t reg, uint16_t val) {
 int rhd_init(rhd_device_t *dev, bool mode, rhd_rw_t rw) {
   dev->double_bits = mode;
   dev->rw = rw;
-  return 0;
+  return rhd_sanity_check(dev);
 }
 
 int rhd_setup(rhd_device_t *dev, float fs, float fl, float fh, bool dsp,
@@ -86,7 +86,7 @@ int rhd_setup(rhd_device_t *dev, float fs, float fl, float fh, bool dsp,
   rhd_r(dev, CHIP_ID);
 
   // configure everything
-  int ret = rhd_w(dev, ADC_CFG, 0b11011110);
+  rhd_w(dev, ADC_CFG, 0b11011110);
   rhd_w(dev, MUX_LOAD_TEMP_SENS_AUX_DIG_OUT, 0b00000000);
   // TODO fn to cfg temp/digout ^
   rhd_w(dev, IMP_CHK_CTRL, 0);
@@ -100,7 +100,7 @@ int rhd_setup(rhd_device_t *dev, float fs, float fl, float fh, bool dsp,
 
   rhd_calib(dev);
 
-  return ret;
+  return rhd_sanity_check(dev);
 }
 
 int rhd_cfg_ch(rhd_device_t *dev, uint32_t channels_l, uint32_t channels_h) {
@@ -222,6 +222,19 @@ int rhd_calib(rhd_device_t *dev) {
 }
 
 int rhd_clear_calib(rhd_device_t *dev) { return rhd_send(dev, 0b01101010, 0); }
+
+int rhd_sanity_check(rhd_device_t *dev) {
+  const char INTAN[] = "INTAN";
+  int ret = 0;
+  for (int i=0; i<sizeof(INTAN)-1; i++) {
+    char let = (char)rhd_read_force(dev, INTAN_0+1);
+    if (let != INTAN[i]) {
+      ret = i+INTAN_0;
+      break;
+    }
+  }
+  return ret;
+}
 
 int rhd_read_force(rhd_device_t *dev, int reg) {
   for (int i = 0; i < 2; i++) {
