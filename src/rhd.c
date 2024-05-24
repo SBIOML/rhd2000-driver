@@ -58,7 +58,8 @@ int rhd_send_raw(rhd_device_t *dev, uint16_t val) {
 int rhd_r(rhd_device_t *dev, uint16_t reg) {
   // reg is 6 bits, b[7,6] = [1, 1]
   reg = (reg & 0x3F) | 0xC0;
-  return rhd_send(dev, reg, 0);
+  rhd_send(dev, reg, 0);
+  return rhd_get_val_from_rx(dev);
 }
 
 int rhd_w(rhd_device_t *dev, uint16_t reg, uint16_t val) {

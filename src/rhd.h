@@ -203,12 +203,12 @@ int rhd_cfg_dsp(rhd_device_t *dev, bool twos_comp, bool abs_mode, bool dsp,
                 float fdsp, float fs);
 
 /**
- * @brief "Force read" a register, meaning it will send the read command 3 times
+ * @brief "Force read" a register, sending the "read" command 3 times
  * to get the expected value in the RX buffer.
  *
  * @param dev pointer to rhd_device_t instance
  * @param reg register to read from
- * @return int
+ * @return int the value read from the register
  */
 int rhd_read_force(rhd_device_t *dev, int reg);
 
@@ -251,8 +251,7 @@ void rhd_sample_all(rhd_device_t *dev);
 /**
  * @brief Decode rx'd bytes in dev->rx_buf to dev->sample_buf
  *
- * @param val 8-bit value to double every bit
- * @return int the 16-bit value with duplicate bits.
+ * @return int the returned value from the rx buffer
  */
 int rhd_get_val_from_rx(rhd_device_t *dev);
 
