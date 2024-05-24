@@ -227,7 +227,7 @@ int rhd_sanity_check(rhd_device_t *dev) {
   const char INTAN[] = "INTAN";
   int ret = 0;
   for (int i=0; i<sizeof(INTAN)-1; i++) {
-    char let = (char)rhd_read_force(dev, INTAN_0+1);
+    char let = (char)rhd_read_force(dev, INTAN_0+i);
     if (let != INTAN[i]) {
       ret = i+INTAN_0;
       break;
