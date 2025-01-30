@@ -13,32 +13,362 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// CFFI START
-
 /**
- * @brief RHD2164 Read Write function typedef.
- * When called, it must send out w_buf while reading into r_buf.
- * The driver uses @ref rhd_device_t's rx_buf and tx_buf.
+ * @brief Read Write function typedef. It is the interface to the RHD2xxx chip.
+ *
+ * When called, it must send out `tx_buf` while reading into `rx_buf`.
  *
  * @param tx_buf write buffer
  * @param rx_buf receive buffer
- * @param len number of 16-bit values to transfer.
+ * @param len number of 16-bits words to transfer.
  *
  * @returns int : Return code
  */
 typedef int (*rhd_rw_t)(uint16_t *tx_buf, uint16_t *rx_buf, size_t len);
 
-typedef struct {
+typedef struct
+{
   rhd_rw_t rw;
-  uint16_t tx_buf[2];
-  uint16_t rx_buf[2];
   bool double_bits;
-  uint16_t sample_buf[64];
 } rhd_device_t;
 
-typedef enum {
+typedef union
+{
+  struct
+  {
+    uint16_t _ : 8;
+    uint16_t value : 6;
+    uint16_t command : 2;
+  };
+  uint16_t raw; // Raw 16-bit access
+} rhd_packet_t;
+
+typedef union
+{
+  struct
+  {
+    uint16_t value : 8;
+    uint16_t reg : 6;
+    uint16_t command : 2;
+  };
+  uint16_t raw; // Raw 16-bit access
+} rhd_packet_t;
+
+/**
+ * @brief Register 0 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t adc_comp_select : 2;
+  uint8_t adc_comp_bias : 2;
+  uint8_t adc_vref_en : 1;
+  uint8_t amp_fast_settle : 1;
+  uint8_t adc_ref_bw : 2;
+} rhd_adc_cfg_t;
+
+/**
+ * @brief Register 1 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t adc_buffer_bias : 6;
+  uint8_t vdd_sense_en : 1;
+} rhd_supply_sensor_adc_buf_bias_t;
+
+/**
+ * @brief Register 2 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t mux_bias : 6;
+} rhd_mux_bias_t;
+
+/**
+ * @brief Register 3 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t digout : 1;
+  uint8_t digout_hiz : 1;
+  uint8_t temp_en : 1;
+  uint8_t temp_s1 : 1;
+  uint8_t temp_s2 : 1;
+  uint8_t mux_load : 3;
+} rhd_mux_load_temp_sensor_aux_dig_out_t;
+
+/**
+ * @brief Register 4 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t dsp_cutoff_f : 4;
+  uint8_t dsp_en : 1;
+  uint8_t abs_mode : 1;
+  uint8_t twos_comp : 1;
+  uint8_t weak_miso : 1;
+} rhd_adc_out_t;
+
+/**
+ * @brief Register 5 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t zcheck_en : 1;
+  uint8_t zcheck_sel_pol : 1;
+  uint8_t zcheck_conn_all : 1;
+  uint8_t zcheck_scale : 2;
+  uint8_t zcheck_load : 1;
+  uint8_t zcheck_dac_power : 1;
+} rhd_imp_check_ctrl_t;
+
+/**
+ * @brief Register 6 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t zcheck_dac : 8;
+} rhd_imp_check_dac_t;
+
+/**
+ * @brief Register 7 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t zcheck_sel : 6;
+} rhd_imp_check_amp_sel_t;
+
+/**
+ * @brief Register 8 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t rh1_dac1 : 6;
+  uint8_t reserved : 1;
+  uint8_t offchip_rh1 : 1;
+} rhd_amp_bw_sel_0_t;
+
+/**
+ * @brief Register 9 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t rh1_dac2 : 5;
+  uint8_t reserved : 2;
+  uint8_t adc_aux1_en : 1;
+} rhd_amp_bw_sel_1_t;
+
+/**
+ * @brief Register 10 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t rh2_dac1 : 6;
+  uint8_t reserved : 1;
+  uint8_t offchip_rh2 : 1;
+} rhd_amp_bw_sel_2_t;
+
+/**
+ * @brief Register 11 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t rh2_dac2 : 5;
+  uint8_t reserved : 2;
+  uint8_t adc_aux2_en : 1;
+} rhd_amp_bw_sel_3_t;
+
+/**
+ * @brief Register 12 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t rl_dac1 : 7;
+  uint8_t offchip_rl : 1;
+} rhd_amp_bw_sel_4_t;
+
+/**
+ * @brief Register 13 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t rl_dac2 : 6;
+  uint8_t rl_dac3 : 1;
+  uint8_t adc_aux3_en : 1;
+} rhd_amp_bw_sel_4_t;
+
+/**
+ * @brief Register 14 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t apwr0 : 1;
+  uint8_t apwr1 : 1;
+  uint8_t apwr2 : 1;
+  uint8_t apwr3 : 1;
+  uint8_t apwr4 : 1;
+  uint8_t apwr5 : 1;
+  uint8_t apwr6 : 1;
+  uint8_t apwr7 : 1;
+} rhd_ind_amp_pwr_0_t;
+
+/**
+ * @brief Register 15 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t apwr8 : 1;
+  uint8_t apwr9 : 1;
+  uint8_t apwr10 : 1;
+  uint8_t apwr11 : 1;
+  uint8_t apwr12 : 1;
+  uint8_t apwr13 : 1;
+  uint8_t apwr14 : 1;
+  uint8_t apwr15 : 1;
+} rhd_ind_amp_pwr_1_t;
+
+/**
+ * @brief Register 16 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t apwr16 : 1;
+  uint8_t apwr17 : 1;
+  uint8_t apwr18 : 1;
+  uint8_t apwr19 : 1;
+  uint8_t apwr20 : 1;
+  uint8_t apwr21 : 1;
+  uint8_t apwr22 : 1;
+  uint8_t apwr23 : 1;
+} rhd_ind_amp_pwr_2_t;
+
+/**
+ * @brief Register 17 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t apwr24 : 1;
+  uint8_t apwr25 : 1;
+  uint8_t apwr26 : 1;
+  uint8_t apwr27 : 1;
+  uint8_t apwr28 : 1;
+  uint8_t apwr29 : 1;
+  uint8_t apwr30 : 1;
+  uint8_t apwr31 : 1;
+} rhd_ind_amp_pwr_3_t;
+
+/**
+ * @brief Register 18 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t apwr32 : 1;
+  uint8_t apwr33 : 1;
+  uint8_t apwr34 : 1;
+  uint8_t apwr35 : 1;
+  uint8_t apwr36 : 1;
+  uint8_t apwr37 : 1;
+  uint8_t apwr38 : 1;
+  uint8_t apwr39 : 1;
+} rhd_ind_amp_pwr_4_t;
+
+/**
+ * @brief Register 19 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t apwr40 : 1;
+  uint8_t apwr41 : 1;
+  uint8_t apwr42 : 1;
+  uint8_t apwr43 : 1;
+  uint8_t apwr44 : 1;
+  uint8_t apwr45 : 1;
+  uint8_t apwr46 : 1;
+  uint8_t apwr47 : 1;
+} rhd_ind_amp_pwr_5_t;
+
+/**
+ * @brief Register 20 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t apwr48 : 1;
+  uint8_t apwr49 : 1;
+  uint8_t apwr50 : 1;
+  uint8_t apwr51 : 1;
+  uint8_t apwr52 : 1;
+  uint8_t apwr53 : 1;
+  uint8_t apwr54 : 1;
+  uint8_t apwr55 : 1;
+} rhd_ind_amp_pwr_6_t;
+
+/**
+ * @brief Register 21 configuration
+ * Assumes little-endian platform.
+ */
+typedef struct
+{
+  uint8_t apwr56 : 1;
+  uint8_t apwr57 : 1;
+  uint8_t apwr58 : 1;
+  uint8_t apwr59 : 1;
+  uint8_t apwr60 : 1;
+  uint8_t apwr61 : 1;
+  uint8_t apwr62 : 1;
+  uint8_t apwr63 : 1;
+} rhd_ind_amp_pwr_7_t;
+
+typedef union
+{
+  rhd_adc_cfg_t adc_cfg;
+  rhd_supply_sensor_adc_buf_bias_t supply_sensor_adc_buf_bias;
+  rhd_mux_bias_t mux_bias;
+  rhd_mux_load_temp_sensor_aux_dig_out_t mux_load_temp_sensor_aux_dig_out;
+  rhd_adc_out_t adc_out;
+  rhd_imp_check_ctrl_t imp_check_ctrl;
+  rhd_imp_check_dac_t imp_check_dac;
+  rhd_imp_check_amp_sel_t imp_check_amp_sel;
+  rhd_amp_bw_sel_0_t amp_bw_sel_0;
+  rhd_amp_bw_sel_1_t amp_bw_sel_1;
+  rhd_amp_bw_sel_2_t amp_bw_sel_2;
+  rhd_amp_bw_sel_3_t amp_bw_sel_3;
+  rhd_amp_bw_sel_4_t amp_bw_sel_4;
+  rhd_amp_bw_sel_4_t amp_bw_sel_5;
+  rhd_ind_amp_pwr_0_t ind_amp_pwr_0;
+  rhd_ind_amp_pwr_1_t ind_amp_pwr_1;
+  rhd_ind_amp_pwr_2_t ind_amp_pwr_2;
+  rhd_ind_amp_pwr_3_t ind_amp_pwr_3;
+  rhd_ind_amp_pwr_4_t ind_amp_pwr_4;
+  rhd_ind_amp_pwr_5_t ind_amp_pwr_5;
+  rhd_ind_amp_pwr_6_t ind_amp_pwr_6;
+  rhd_ind_amp_pwr_7_t ind_amp_pwr_7;
+  uint8_t raw;
+} rhd_reg_cfg_t;
+
+typedef enum
+{
   ADC_CFG = 0,
-  SUPPLY_SENS_ADC_BUF_BIAS = 1,
+  SUPPLY_SENSOR_ADC_BUF_BIAS = 1,
   MUX_BIAS_CURR = 2,
   MUX_LOAD_TEMP_SENS_AUX_DIG_OUT = 3,
   ADC_OUT_FMT_DPS_OFF_RMVL = 4,
@@ -72,16 +402,15 @@ typedef enum {
 } rhd_reg_t;
 
 /**
- * @brief Send data. Unlike rhd_r and rhd_w, this function does not set bits
+ * @brief Send data. Unlike `rhd_r` and `rhd_w`, this function does not set bits
  * [7:6] of reg. It does double the bits of `reg` and `val` if
  * `dev->double_bits` is true.
  *
  * @param dev pointer to rhd_device_t instance
- * @param reg register to read, member of rhd_reg_t enum
- * @param val value to send
- * @return int SPI communication return code
+ * @param data data to write
+ * @return int received value
  */
-int rhd_send(rhd_device_t *dev, uint16_t reg, uint16_t val);
+int rhd_send(rhd_device_t *dev, rhd_packet_t data);
 
 /**
  * @brief Send raw data. This function, unlike `rhd_send`, does not double bits.
@@ -97,13 +426,11 @@ int rhd_send_raw(rhd_device_t *dev, uint16_t val);
 /**
  * @brief Read RHD register
  *
- * dev->tx_buf's content is overwritten with the commands.
- *
  * dev->rx_buf contains the received values.
  *
  * @param dev pointer to rhd_device_t instance
  * @param reg register to read, member of rhd_reg_t enum
- * @return int SPI communication return code
+ * @return int Read value
  */
 int rhd_r(rhd_device_t *dev, uint16_t reg);
 
@@ -217,6 +544,11 @@ int rhd_read_force(rhd_device_t *dev, int reg);
  * dev->tx_buf's content is overwritten with the commands.
  * dev->sample_buf is written to at the channel's index.
  *
+ * With the DDR strategy, 2 channels are sampled at once, for a total of 32 bits in 16 clock cycles.
+ *
+ * If `dev->double_bits` is `false`, MISO A is captured in rx[0] and MISO B in rx[1]
+ * If `dev->double_bits` is `true`, MISO A and MISO B are intertwined since all received bits are doubled.
+ *
  * @param dev pointer to rhd_device_t instance
  * @param ch channel number to sample (0-31)
  * @return int SPI return code
@@ -241,10 +573,10 @@ int rhd_clear_calib(rhd_device_t *dev);
 
 /**
  * @brief Read the INTAN registers (40-44) to verify if the chip is working.
- * 
+ *
  * @param dev pointer to rhd_device_t instance
  * @return int 0 for success. Otherwise, returns the first register which failed.
-*/
+ */
 int rhd_sanity_check(rhd_device_t *dev);
 
 /**
@@ -288,7 +620,5 @@ int rhd_duplicate_bits(uint8_t val);
  * @param b destination 8-bit data as 0byyyy yyyy
  */
 void rhd_unsplit_u16(uint16_t data, uint8_t *a, uint8_t *b);
-
-// CFFI END
 
 #endif /* RHD_H */
