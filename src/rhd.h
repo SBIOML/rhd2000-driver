@@ -13,8 +13,6 @@
 #include <stddef.h>
 #include <stdint.h>
 
-// CFFI START
-
 /**
  * @brief RHD2164 Read Write function typedef.
  * When called, it must send out w_buf while reading into r_buf.
@@ -28,15 +26,14 @@
  */
 typedef int (*rhd_rw_t)(uint16_t *tx_buf, uint16_t *rx_buf, size_t len);
 
-typedef struct {
+typedef struct
+{
   rhd_rw_t rw;
-  uint16_t tx_buf[2];
-  uint16_t rx_buf[2];
   bool double_bits;
-  uint16_t sample_buf[64];
 } rhd_device_t;
 
-typedef enum {
+typedef enum
+{
   ADC_CFG = 0,
   SUPPLY_SENS_ADC_BUF_BIAS = 1,
   MUX_BIAS_CURR = 2,
@@ -79,47 +76,28 @@ typedef enum {
  * @param dev pointer to rhd_device_t instance
  * @param reg register to read, member of rhd_reg_t enum
  * @param val value to send
- * @return int SPI communication return code
+ * @return received value
  */
-int rhd_send(rhd_device_t *dev, uint16_t reg, uint16_t val);
+uint8_t rhd_send(rhd_device_t *dev, uint16_t reg, uint16_t val);
 
 /**
- * @brief Send raw data. This function, unlike `rhd_send`, does not double bits.
- * It should only be used for highly optimized situations where `val` is
- * pre-doubled, for example at compile-time.
- *
- * @param dev pointer to rhd_device_t instance
- * @param val value to send that is put in dev->tx_buf[0]
- * @return int SPI communication return code
- */
-int rhd_send_raw(rhd_device_t *dev, uint16_t val);
-
-/**
- * @brief Read RHD register
- *
- * dev->tx_buf's content is overwritten with the commands.
- *
- * dev->rx_buf contains the received values.
+ * @brief Read RHD register.
  *
  * @param dev pointer to rhd_device_t instance
  * @param reg register to read, member of rhd_reg_t enum
- * @return int SPI communication return code
+ * @return register value
  */
-int rhd_r(rhd_device_t *dev, uint16_t reg);
+uint8_t rhd_r(rhd_device_t *dev, uint16_t reg);
 
 /**
- * @brief Write RHD register
- *
- * dev->tx_buf's content is overwritten with the commands.
- *
- * dev->rx_buf contains the received values.
+ * @brief Write RHD register.
  *
  * @param dev pointer to rhd_device_t instance
  * @param reg Register to write to
  * @param val Value to write into register
- * @return int SPI return code
+ * @return received value
  */
-int rhd_w(rhd_device_t *dev, uint16_t reg, uint16_t val);
+uint8_t rhd_w(rhd_device_t *dev, uint16_t reg, uint16_t val);
 
 /**
  * @brief Initialize RHD device driver. Afterwards, call `rhd_setup(...)` to
@@ -131,7 +109,7 @@ int rhd_w(rhd_device_t *dev, uint16_t reg, uint16_t val);
  * This is how RHD2164 driver bridges to the hardware.
  * Refer to @ref rhd_rw_t's inline documentation.
  *
- * @return int sanity check result, 0 for success. See @ref rhd_sanity_check for more details.
+ * @return int sanity check result, 0 for success. See `rhd_sanity_check` for more details.
  */
 int rhd_init(rhd_device_t *dev, bool mode, rhd_rw_t rw);
 
@@ -144,6 +122,7 @@ int rhd_init(rhd_device_t *dev, bool mode, rhd_rw_t rw);
  * @param fh amplifier highpass frequency [Hz]
  * @param dsp enable dsp
  * @param fdsp high-pass DSP cutoff frequency [Hz]
+ *
  * @return int sanity check result, 0 for success. See @ref rhd_sanity_check for more details.
  */
 int rhd_setup(rhd_device_t *dev, float fs, float fl, float fh, bool dsp,
@@ -208,20 +187,9 @@ int rhd_cfg_dsp(rhd_device_t *dev, bool twos_comp, bool abs_mode, bool dsp,
  *
  * @param dev pointer to rhd_device_t instance
  * @param reg register to read from
- * @return int value read from the register
+ * @return register value
  */
-int rhd_read_force(rhd_device_t *dev, int reg);
-
-/**
- * @brief Sample a single RHD channel.
- * dev->tx_buf's content is overwritten with the commands.
- * dev->sample_buf is written to at the channel's index.
- *
- * @param dev pointer to rhd_device_t instance
- * @param ch channel number to sample (0-31)
- * @return int SPI return code
- */
-int rhd_sample(rhd_device_t *dev, uint8_t ch);
+uint8_t rhd_read_force(rhd_device_t *dev, int reg);
 
 /**
  * @brief Run RHD calibration routine
@@ -229,7 +197,7 @@ int rhd_sample(rhd_device_t *dev, uint8_t ch);
  * @param dev pointer to rhd_device_t instance
  * @return int SPI return code
  */
-int rhd_calib(rhd_device_t *dev);
+uint8_t rhd_calib(rhd_device_t *dev);
 
 /**
  * @brief Clear RHD calibration
@@ -237,58 +205,45 @@ int rhd_calib(rhd_device_t *dev);
  * @param dev pointer to rhd_device_t instance
  * @return int SPI return code
  */
-int rhd_clear_calib(rhd_device_t *dev);
+uint8_t rhd_clear_calib(rhd_device_t *dev);
 
 /**
  * @brief Read the INTAN registers (40-44) to verify if the chip is working.
- * 
+ *
  * @param dev pointer to rhd_device_t instance
  * @return int 0 for success. Otherwise, returns the first register which failed.
-*/
+ */
 int rhd_sanity_check(rhd_device_t *dev);
 
 /**
- * @brief Sequentially sample all RHD channels.
- * The values are saved into dev->sample_buf.
- * Channel 0's LSb is set to 0, while all others are set to 1.
+ * @brief Sample RHD2000 channel.
+ *
+ * @param dev
+ * @param ch channel to sample [0-31].
+ *
+ * @return sample
+ */
+uint16_t rhd2000_sample(rhd_device_t *dev, uint16_t ch);
+
+/**
+ * @brief Sample RHD2164 channels.
+ *
+ * @param dev
+ * @param ch channel to sample [0-31], RHD2164 will also sample all others.
+ * @param rx sample reception buffer, where `rx[0]` contains `ch` data and `rx[1]` contains `ch+32` data.
+ * @return pointer to sample buffer
+ */
+uint16_t *rhd2164_sample(rhd_device_t *dev, uint16_t ch, uint16_t *rx);
+
+/**
+ * @brief Sample all RHD2164 channels.
+ *
+ * The values are saved into `sample_buf` at their channel index.alignas
+ *
+ * Channel 0's LSb is set to 0, while all others are set to 1 for alignment.
  *
  * @param dev pointer to rhd_device_t instance
  */
-void rhd_sample_all(rhd_device_t *dev);
-
-/**
- * @brief Decode rx'd bytes in dev->rx_buf to dev->sample_buf
- *
- * @return int the returned value from the rx buffer
- */
-int rhd_get_val_from_rx(rhd_device_t *dev);
-
-/**
- * @brief Decode rx'd bytes in dev->rx_buf to dev->sample_buf
- *
- * @param ch channel of the sample [0-63] in dev->rx_buf
- */
-void rhd_get_samples_from_rx(rhd_device_t *dev, uint16_t ch);
-
-/**
- * @brief Duplicate the bits of a value.
- * It is assumed to be an 8-bits value.
- * For example, 0b01010011 becomes 0b0011001100001111
- *
- * @param val 8-bit value to double every bit
- * @return int the 16-bit value with duplicate bits.
- */
-int rhd_duplicate_bits(uint8_t val);
-
-/**
- * @brief Unsplit SPI DDR flip-flopped data
- *
- * @param data source data as 0bxyxy xyxy xyxy xyxy
- * @param a destination 8-bit data as 0bxxxx xxxx
- * @param b destination 8-bit data as 0byyyy yyyy
- */
-void rhd_unsplit_u16(uint16_t data, uint8_t *a, uint8_t *b);
-
-// CFFI END
+void rhd2164_sample_all(rhd_device_t *dev, uint16_t *sample_buf);
 
 #endif /* RHD_H */
