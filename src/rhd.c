@@ -7,6 +7,7 @@
  */
 
 #include "rhd.h"
+#include <math.h>
 
 /**
  * @brief Duplicate the bits of a value.
@@ -82,7 +83,7 @@ int rhd_init(rhd_device_t *dev, bool mode, rhd_rw_t rw)
 }
 
 int rhd_setup(rhd_device_t *dev, float fs, float fl, float fh, bool dsp,
-              float fdsp)
+              float fdsp, bool impedance)
 {
   // R0 : 1.225V Vref = 1, ADC comp bias = 3, ADC comp sel = 2
   // R4 : [b6] twoscomp = 1
@@ -96,10 +97,11 @@ int rhd_setup(rhd_device_t *dev, float fs, float fl, float fh, bool dsp,
   // configure everything
   rhd_w(dev, ADC_CFG, 0b11011110);
   rhd_w(dev, MUX_LOAD_TEMP_SENS_AUX_DIG_OUT, 0b00000000);
-  // TODO fn to cfg temp/digout ^
-  rhd_w(dev, IMP_CHK_CTRL, 0);
-  rhd_w(dev, IMP_CHK_DAC, 0);
-  rhd_w(dev, IMP_CHK_AMP_SEL, 0);
+
+  uint8_t scale = DEFAULT_SCALE;
+  uint8_t voltage = 0;
+  uint8_t electrode_reg = 0;
+  rhd_cfg_impedance(dev, impedance, scale, voltage, electrode_reg);
 
   rhd_cfg_fs(dev, fs, 32);
   rhd_cfg_dsp(dev, true, false, dsp, fdsp, fs);
@@ -230,6 +232,39 @@ int rhd_cfg_dsp(rhd_device_t *dev, bool twos_comp, bool abs_mode, bool dsp,
                (1 << 7) | (((int)twos_comp) << 6) | (((int)abs_mode) << 5) |
                    (((int)dsp) << 4) | dsp_val);
 }
+
+int rhd_cfg_impedance(rhd_device_t *dev, bool impedance_on, uint8_t scale, uint8_t voltage, uint8_t electrode_reg)
+{
+  uint8_t imped_ctrl_val = (ZCHECK_EN(impedance_on) | ZCHECK_DAC_POWER(impedance_on) | ZCHECK_SCALE(scale));
+  int ret_ctrl = rhd_w(dev, IMP_CHK_CTRL, imped_ctrl_val);
+  int ret_dac = rhd_w(dev, IMP_CHK_DAC, voltage & (0xFF*impedance_on));
+  int ret_amp_sel = rhd_w(dev, IMP_CHK_AMP_SEL, electrode_reg & (0x3F*impedance_on));
+  return ret_ctrl | ret_dac | ret_amp_sel;
+}
+
+int rhd_enable_impedance(rhd_device_t *dev)
+{
+  return rhd_cfg_impedance(dev, true, DEFAULT_SCALE, 0, 0);
+}
+
+int rhd_disable_impedance(rhd_device_t *dev)
+{
+  return rhd_cfg_impedance(dev, false, 0, 0, 0);
+}
+
+int rhd_update_impedance_dac_voltage(rhd_device_t *dev, float voltage)
+{
+  // For a DAC that swings from 0V to approximately 1.225V, compute the DAC step.
+  const float dac_step = 1.225f / 256.0f;
+  int dac_val = (int)(voltage / dac_step);  
+  return rhd_w(dev, IMP_CHK_DAC, dac_val);
+}
+
+int rhd_update_impedance_amp_sel(rhd_device_t *dev, uint8_t electrode_reg)
+{
+  rhd_w(dev, IMP_CHK_AMP_SEL, electrode_reg & 0x3F);
+}
+
 
 uint8_t rhd_calib(rhd_device_t *dev)
 {

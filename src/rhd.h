@@ -68,6 +68,16 @@ typedef enum
   CHIP_ID = 63,
 } rhd_reg_t;
 
+#define ZCHECK_EN(x)         ((x) & 0x1) // bit 0
+#define ZCHECK_SCALE(x)   (((x) & 0x3) << 3) // Bit 4-3
+#define ZCHECK_DAC_POWER(x)  (((x) & 0x1) << 6) // bit 6
+#define ZCHECK_SCALE_0_1pf 0 // 0.1 pF - @ 1kHz -> max current = 0.38nA
+#define ZCHECK_SCALE_1pf 1 // 1 pF - @ 1kHz -> max current = 3.8nA
+#define ZCHECK_SCALE_10pf 3 // 10 pF - @ 1kHz -> max current = 38nA
+
+#define DEFAULT_SCALE ZCHECK_SCALE_1pf // 1 pF - @ 1kHz -> max current = 3.8nA
+
+
 /**
  * @brief Send data. Unlike rhd_r and rhd_w, this function does not set bits
  * [7:6] of reg. It does double the bits of `reg` and `val` if
@@ -122,11 +132,12 @@ int rhd_init(rhd_device_t *dev, bool mode, rhd_rw_t rw);
  * @param fh amplifier highpass frequency [Hz]
  * @param dsp enable dsp
  * @param fdsp high-pass DSP cutoff frequency [Hz]
+ * @param impedance enable impedance
  *
  * @return int sanity check result, 0 for success. See @ref rhd_sanity_check for more details.
  */
 int rhd_setup(rhd_device_t *dev, float fs, float fl, float fh, bool dsp,
-              float fdsp);
+              float fdsp, bool impedance);
 
 /**
  * @brief Configure RHD sample rate
@@ -180,6 +191,47 @@ int rhd_cfg_amp_bw(rhd_device_t *dev, float fl, float fh);
  */
 int rhd_cfg_dsp(rhd_device_t *dev, bool twos_comp, bool abs_mode, bool dsp,
                 float fdsp, float fs);
+
+/**
+ * @brief Configure RHD impedance
+ *
+ * @param dev pointer to rhd_device_t instance
+ * @param impedance_on true to enable impedance, false to disable
+ * @param scale impedance scale
+ * @param voltage impedance voltage
+ * @param electrode_reg impedance electrode register
+ */
+int rhd_cfg_impedance(rhd_device_t *dev, bool impedance_on, uint8_t scale, uint8_t voltage, uint8_t electrode_reg);
+
+/**
+ * @brief Disable RHD impedance
+ *
+ * @param dev pointer to rhd_device_t instance
+ */
+int rhd_disable_impedance(rhd_device_t *dev);
+
+/**
+ * @brief Enable RHD impedance
+ *
+ * @param dev pointer to rhd_device_t instance
+ */
+int rhd_enable_impedance(rhd_device_t *dev);
+
+/**
+ * @brief Update RHD impedance DAC voltage
+ *
+ * @param dev pointer to rhd_device_t instance
+ * @param voltage impedance voltage in volts (0-1.225V)
+ */
+int rhd_update_impedance_dac_voltage(rhd_device_t *dev, float voltage);
+
+/**
+ * @brief Update RHD impedance amplifier selection
+ *
+ * @param dev pointer to rhd_device_t instance
+ * @param electrode_reg impedance electrode register
+ */
+int rhd_update_impedance_amp_sel(rhd_device_t *dev, uint8_t electrode_reg); 
 
 /**
  * @brief "Force read" a register, sending the "read" command 3 times
