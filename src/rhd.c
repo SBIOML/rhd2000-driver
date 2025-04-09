@@ -272,7 +272,7 @@ int rhd_update_impedance_electrode_sel(rhd_device_t *dev, uint8_t electrode_reg)
   return rhd_w(dev, IMP_CHK_AMP_SEL, electrode_reg & 0x3F);
 }
 
-int rhd_generate_waveform(rhd_device_t *dev, int offset, int peak_val, float freq, int sample_per_cycle, void (*delay_us_fn_callback)(uint16_t)){
+int rhd_generate_waveform(rhd_device_t *dev, int offset, int peak_val, float freq, int sample_per_cycle, void (*delay_us_fn_callback)(int)){
   // peak must be bigger than offset amplitude = peak_val - offset
   if (peak_val <= offset){
     return 1;

@@ -259,7 +259,7 @@ int rhd_update_impedance_electrode_sel(rhd_device_t *dev, uint8_t electrode_reg)
    * @param delay_us_fn_callback A function pointer to a callback that introduces a delay in microseconds.
    * @return 0 for success, 1 for failure.
    */
-int rhd_generate_waveform(rhd_device_t *dev, int offset, int peak_val, float freq, int sample_per_cycle, void (*delay_us_fn_callback)(uint16_t));
+int rhd_generate_waveform(rhd_device_t *dev, int offset, int peak_val, float freq, int sample_per_cycle, void (*delay_us_fn_callback)(int));
 
 /**
  * @brief Read the DAC value from the RHD device.
