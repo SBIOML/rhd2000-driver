@@ -235,6 +235,11 @@ int rhd_cfg_dsp(rhd_device_t *dev, bool twos_comp, bool abs_mode, bool dsp,
 
 int rhd_cfg_impedance(rhd_device_t *dev, bool impedance_on, uint8_t scale, uint8_t voltage, uint8_t electrode_reg)
 {
+  dev->impedance.enable = impedance_on;
+  dev->impedance.scale = scale;
+  dev->impedance.voltage = voltage;
+  dev->impedance.electrode_reg = electrode_reg;
+
   uint8_t imped_ctrl_val = (ZCHECK_EN(impedance_on) | ZCHECK_DAC_POWER(impedance_on) | ZCHECK_SCALE(scale));
   int ret_ctrl = rhd_w(dev, IMP_CHK_CTRL, imped_ctrl_val);
   int ret_dac = rhd_w(dev, IMP_CHK_DAC, voltage & (0xFF*impedance_on));
@@ -244,27 +249,52 @@ int rhd_cfg_impedance(rhd_device_t *dev, bool impedance_on, uint8_t scale, uint8
 
 int rhd_enable_impedance(rhd_device_t *dev)
 {
-  return rhd_cfg_impedance(dev, true, DEFAULT_SCALE, 0, 0);
+  dev->impedance.enable = true;
+  return rhd_cfg_impedance(dev, true, dev->impedance.scale, dev->impedance.voltage, dev->impedance.electrode_reg);
 }
 
 int rhd_disable_impedance(rhd_device_t *dev)
 {
+  dev->impedance.enable = false;
   return rhd_cfg_impedance(dev, false, 0, 0, 0);
 }
 
-int rhd_update_impedance_dac_voltage(rhd_device_t *dev, float voltage)
+int rhd_update_impedance_dac_voltage(rhd_device_t *dev, uint8_t voltage)
 {
-  // For a DAC that swings from 0V to approximately 1.225V, compute the DAC step.
-  const float dac_step = 1.225f / 256.0f;
-  int dac_val = (int)(voltage / dac_step);  
-  return rhd_w(dev, IMP_CHK_DAC, dac_val);
+  // For a DAC that swings from 0V to approximately 1.225V (0-255)
+  dev->impedance.voltage = voltage;
+  return rhd_w(dev, IMP_CHK_DAC, voltage);
 }
 
-int rhd_update_impedance_amp_sel(rhd_device_t *dev, uint8_t electrode_reg)
+int rhd_update_impedance_electrode_sel(rhd_device_t *dev, uint8_t electrode_reg)
 {
-  rhd_w(dev, IMP_CHK_AMP_SEL, electrode_reg & 0x3F);
+  dev->impedance.electrode_reg = electrode_reg;
+  return rhd_w(dev, IMP_CHK_AMP_SEL, electrode_reg & 0x3F);
 }
 
+int rhd_generate_waveform(rhd_device_t *dev, int offset, int peak_val, float freq, int sample_per_cycle, void (*delay_us_fn_callback)(uint16_t)){
+  // peak must be bigger than offset amplitude = peak_val - offset
+  if (peak_val <= offset){
+    return 1;
+  }
+
+  int t = 0;
+  float dt = 1.0f / (freq * sample_per_cycle);
+  float amplitude = peak_val - offset;
+  while (1) {
+    t++;
+    float angle = 2 * M_PI * freq * t * dt;
+    uint8_t val = offset + (uint8_t)(amplitude * sin(angle));  // sine wave centered at offset
+    rhd_w(dev, IMP_CHK_DAC, val);
+    int delay_us = dt*1000000;
+    delay_us_fn_callback(delay_us);
+  }
+  return 0;
+}
+
+uint8_t rhd_read_dac(rhd_device_t *dev){
+  return rhd_read_force(dev, IMP_CHK_DAC);
+}
 
 uint8_t rhd_calib(rhd_device_t *dev)
 {

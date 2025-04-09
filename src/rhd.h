@@ -26,10 +26,27 @@
  */
 typedef int (*rhd_rw_t)(uint16_t *tx_buf, uint16_t *rx_buf, size_t len);
 
+#define ZCHECK_EN(x)         ((x) & 0x1) // bit 0
+#define ZCHECK_SCALE(x)   (((x) & 0x3) << 3) // Bit 4-3
+#define ZCHECK_DAC_POWER(x)  (((x) & 0x1) << 6) // bit 6
+#define ZCHECK_SCALE_0_1pf 0 // 0.1 pF - @ 1kHz -> max current = 0.38nA
+#define ZCHECK_SCALE_1pf 1 // 1 pF - @ 1kHz -> max current = 3.8nA
+#define ZCHECK_SCALE_10pf 3 // 10 pF - @ 1kHz -> max current = 38nA
+
+#define DEFAULT_SCALE ZCHECK_SCALE_1pf // 1 pF - @ 1kHz -> max current = 3.8nA
+
+typedef struct {
+  bool enable; // true if impedance check is enabled
+  uint8_t scale; // 0-3
+  uint8_t voltage; // 0-255
+  uint8_t electrode_reg; // 0-63
+} rhd_impedance_t;
+
 typedef struct
 {
   rhd_rw_t rw;
   bool double_bits;
+  rhd_impedance_t impedance; // impedance settings
 } rhd_device_t;
 
 typedef enum
@@ -68,14 +85,6 @@ typedef enum
   CHIP_ID = 63,
 } rhd_reg_t;
 
-#define ZCHECK_EN(x)         ((x) & 0x1) // bit 0
-#define ZCHECK_SCALE(x)   (((x) & 0x3) << 3) // Bit 4-3
-#define ZCHECK_DAC_POWER(x)  (((x) & 0x1) << 6) // bit 6
-#define ZCHECK_SCALE_0_1pf 0 // 0.1 pF - @ 1kHz -> max current = 0.38nA
-#define ZCHECK_SCALE_1pf 1 // 1 pF - @ 1kHz -> max current = 3.8nA
-#define ZCHECK_SCALE_10pf 3 // 10 pF - @ 1kHz -> max current = 38nA
-
-#define DEFAULT_SCALE ZCHECK_SCALE_1pf // 1 pF - @ 1kHz -> max current = 3.8nA
 
 
 /**
@@ -218,12 +227,12 @@ int rhd_disable_impedance(rhd_device_t *dev);
 int rhd_enable_impedance(rhd_device_t *dev);
 
 /**
- * @brief Update RHD impedance DAC voltage
+ * @brief Update RHD impedance DAC DC voltage
  *
  * @param dev pointer to rhd_device_t instance
- * @param voltage impedance voltage in volts (0-1.225V)
+ * @param voltage impedance voltage in volts (0-255)=(0-1.225V)
  */
-int rhd_update_impedance_dac_voltage(rhd_device_t *dev, float voltage);
+int rhd_update_impedance_dac_voltage(rhd_device_t *dev, uint8_t voltage);
 
 /**
  * @brief Update RHD impedance amplifier selection
@@ -231,7 +240,35 @@ int rhd_update_impedance_dac_voltage(rhd_device_t *dev, float voltage);
  * @param dev pointer to rhd_device_t instance
  * @param electrode_reg impedance electrode register
  */
-int rhd_update_impedance_amp_sel(rhd_device_t *dev, uint8_t electrode_reg); 
+int rhd_update_impedance_electrode_sel(rhd_device_t *dev, uint8_t electrode_reg); 
+
+/**
+   * @brief Generates a waveform and writes it to the DAC. Used to generate a AC voltage on the impedance electrode.
+   *
+   * This function continuously generates a sine waveform based on the specified parameters.
+   * The waveform is centered around the specified offset and has a peak value defined by
+   * the peak_val parameter. The frequency of the waveform is determined by the freq parameter,
+   * and the number of samples per cycle is specified by sample_per_cycle. A callback function
+   * for introducing delays between samples is provided as delay_us_fn_callback.
+   *
+   * @param dev Pointer to the rhd_device_t structure representing the device.
+   * @param offset The DC offset to center the waveform around. (0-255)=(0-1.225V)
+   * @param peak_val The peak value of the waveform. Must be bigger tan offset [amplitude = peak - offset] (0-255)=(0-1.225V)
+   * @param freq The frequency of the waveform in Hz.
+   * @param sample_per_cycle The number of samples to generate per cycle of the waveform.
+   * @param delay_us_fn_callback A function pointer to a callback that introduces a delay in microseconds.
+   * @return 0 for success, 1 for failure.
+   */
+int rhd_generate_waveform(rhd_device_t *dev, int offset, int peak_val, float freq, int sample_per_cycle, void (*delay_us_fn_callback)(uint16_t));
+
+/**
+ * @brief Read the DAC value from the RHD device.
+ *
+ * @param dev Pointer to the rhd_device_t structure representing the device.
+ * @return The value of the DAC.
+ */
+uint8_t rhd_read_dac(rhd_device_t *dev);
+
 
 /**
  * @brief "Force read" a register, sending the "read" command 3 times
