@@ -42,6 +42,25 @@ typedef struct {
   uint8_t electrode_reg; // 0-63
 } rhd_impedance_t;
 
+typedef enum {
+  RHD_WAVEFORM_ERR_NONE = 0,
+  RHD_WAVEFORM_ERR_AMPLITUDE = 1,
+  RHD_WAVEFORM_ERR_BELOW_ZERO = 2,
+  RHD_WAVEFORM_ERR_ABOVE_MAX = 3,
+} rhd_waveform_error_t;
+
+typedef struct {
+    float phase;
+    float phase_increment;
+    int offset;
+    int amplitude;
+    int wave_freq;
+    int sample_per_cycle;
+    int sample_count;
+    int sample;
+    int error;
+} rhd_waveform_state_t;
+
 typedef struct
 {
   rhd_rw_t rw;
@@ -241,6 +260,28 @@ int rhd_update_impedance_dac_voltage(rhd_device_t *dev, uint8_t voltage);
  * @param electrode_reg impedance electrode register
  */
 int rhd_update_impedance_electrode_sel(rhd_device_t *dev, uint8_t electrode_reg); 
+
+
+
+/**
+ * @brief Initialize the waveform state for generating a waveform.
+ *
+ * @param offset The DC offset to center the waveform around. [128 is the 0V offset] (0..255)=(-1.1225..1.225V)
+ * @param peak_val The peak value of the waveform. Must be bigger than offset [amplitude = peak - offset] (0-255)=(0-1.225V)
+ * @param wave_freq The frequency of the waveform in Hz.
+ * @param sample_per_cycle The number of samples to generate per cycle of the waveform.
+ * @return 0 for success, 1 for failure.
+ */
+int rhd_waveform_init(rhd_waveform_state_t *state, int offset, int peak_val, float wave_freq, int sample_per_cycle);
+
+/**
+ * @brief Update the waveform state and write the generated waveform to the DAC.
+ *
+ * @param dev Pointer to the rhd_device_t structure representing the device.
+ * @param state Pointer to the rhd_waveform_state_t structure containing the waveform state.
+ * @return 0 for success, 1 for failure.
+ */
+int rhd_waveform_update(rhd_device_t *dev, rhd_waveform_state_t *state);
 
 /**
    * @brief Generates a waveform and writes it to the DAC. Used to generate a AC voltage on the impedance electrode.

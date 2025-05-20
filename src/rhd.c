@@ -272,6 +272,50 @@ int rhd_update_impedance_electrode_sel(rhd_device_t *dev, uint8_t electrode_reg)
   return rhd_w(dev, IMP_CHK_AMP_SEL, electrode_reg & 0x3F);
 }
 
+int rhd_waveform_init(rhd_waveform_state_t *wf_state, int offset, int peak_val, float wave_freq, int sample_per_cycle) {
+  // peak must be bigger than offset amplitude = peak_val - offset
+  float amplitude = peak_val - offset;
+  
+
+  wf_state->phase = 0.0f; // Phase of the waveform
+  wf_state->offset = offset; // 255 - 127 = 128  128 is the offset for a 8-bit DAC
+  wf_state->amplitude = amplitude; // 255 - 128 = 127  127 is the max amplitude for a 8-bit DAC 
+  wf_state->wave_freq = wave_freq; // Frequency of the waveform
+  wf_state->sample_per_cycle = sample_per_cycle; // Number of samples per cycle
+  wf_state->sample_count = 0; // Sample count
+  wf_state->phase_increment = (2.0f * M_PI * wf_state->wave_freq) / wf_state->sample_per_cycle; // Phase increment
+  wf_state->error  = 0; // No error
+  
+  if (peak_val <= offset){
+    wf_state->error = 1; // Error: peak_val must be bigger than offset
+  }
+  return wf_state->error ;
+}
+
+int rhd_waveform_update(rhd_device_t *dev, rhd_waveform_state_t *state) {
+
+    state->sample_count++;
+    if (state->sample_count >= state->sample_per_cycle) state->sample_count = 0;
+    
+    // Calculate phase directly from sample count to avoid drift
+    float phase = 2.0f * M_PI * ((float)state->sample_count / (float)state->sample_per_cycle);
+    float sample = state->offset + state->amplitude * sinf(phase);
+    state->sample = (uint8_t)sample;
+    rhd_w(dev, IMP_CHK_DAC, state->sample);
+
+    // Check for errors and set descriptive error codes
+    if (state->amplitude <= 0) {
+      state->error = RHD_WAVEFORM_ERR_AMPLITUDE; // Error: amplitude not positive (peak_val <= offset)
+    } else if (state->sample < 0) {
+      state->error = RHD_WAVEFORM_ERR_BELOW_ZERO; // Error: sample below offset
+    } else if (state->sample > state->offset + state->amplitude) {
+      state->error = RHD_WAVEFORM_ERR_ABOVE_MAX; // Error: sample above maximum
+    } else {
+      state->error = RHD_WAVEFORM_ERR_NONE; // No error
+    }
+    return state->error;
+}
+
 int rhd_generate_waveform(rhd_device_t *dev, int offset, int peak_val, float freq, int sample_per_cycle, void (*delay_us_fn_callback)(int)){
   // peak must be bigger than offset amplitude = peak_val - offset
   if (peak_val <= offset){
